@@ -145,7 +145,8 @@ GET http://127.0.0.1:8000/api/health
 3. ~~Agents + départements CRUD~~  
 4. ~~Sites + pointages (scan / sync / anomalies)~~  
 5. ~~Demandes RH + notifications + media storage~~  
-6. Modules paramètres / annonces / remote config…
+6. ~~Paramètres (remote config, features, horaires, annonces)~~  
+7. Modules restants (missions, sanctions, planning, holidays…)
 
 ## Licence
 

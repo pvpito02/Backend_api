@@ -1,15 +1,20 @@
 <?php
 
 use App\Http\Controllers\Api\AgentController;
+use App\Http\Controllers\Api\AnnouncementController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DemandeController;
 use App\Http\Controllers\Api\DepartementController;
 use App\Http\Controllers\Api\MediaController;
+use App\Http\Controllers\Api\MobileFeatureController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PointageAnomalieController;
 use App\Http\Controllers\Api\PointageController;
+use App\Http\Controllers\Api\RemoteConfigBundleController;
+use App\Http\Controllers\Api\RemoteConfigController;
 use App\Http\Controllers\Api\SiteController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\WorkScheduleController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -23,7 +28,7 @@ Route::get('/health', function () {
         'ok' => true,
         'service' => 'Backend_api',
         'app' => 'Pointage Mairie de Sandiara',
-        'version' => '0.6.0',
+        'version' => '0.7.0',
     ]);
 });
 
@@ -44,7 +49,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('agents', AgentController::class);
     Route::apiResource('sites', SiteController::class);
 
-    // Médias (storage:link → /storage/...)
     Route::post('/media/upload', [MediaController::class, 'store']);
 
     // Pointages
@@ -68,4 +72,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
     Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllRead']);
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
+
+    // Paramètres admin / remote config mobile
+    Route::get('/remote-config', RemoteConfigBundleController::class);
+    Route::post('/remote-configs/bulk', [RemoteConfigController::class, 'bulkUpdate']);
+    Route::apiResource('remote-configs', RemoteConfigController::class);
+    Route::apiResource('mobile-features', MobileFeatureController::class)->only(['index', 'show', 'update']);
+    Route::apiResource('work-schedules', WorkScheduleController::class)->only(['index', 'show', 'update']);
+    Route::apiResource('announcements', AnnouncementController::class);
 });

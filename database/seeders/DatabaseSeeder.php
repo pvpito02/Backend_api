@@ -27,6 +27,7 @@ class DatabaseSeeder extends Seeder
             AgentSeeder::class,
             PointageSeeder::class,
             DemandeSeeder::class,
+            AnnouncementSeeder::class,
         ]);
     }
 }

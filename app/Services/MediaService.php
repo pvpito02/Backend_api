@@ -31,7 +31,7 @@ class MediaService
 
         return [
             'path' => $path,
-            'url' => Storage::disk('public')->url($path),
+            'url' => '/storage/'.$path,
             'original_name' => $file->getClientOriginalName(),
             'mime' => $file->getClientMimeType() ?: 'application/octet-stream',
             'size' => $file->getSize() ?: 0,

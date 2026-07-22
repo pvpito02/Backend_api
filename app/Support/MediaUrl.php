@@ -2,13 +2,13 @@
 
 namespace App\Support;
 
-use Illuminate\Support\Facades\Storage;
-
 class MediaUrl
 {
     /**
-     * Transforme un chemin storage relatif en URL publique absolue.
-     * Ex: agents/avatars/x.jpg → http://localhost:8000/storage/agents/avatars/x.jpg
+     * Transforme un chemin storage relatif en chemin public /storage/...
+     * (relatif — le client préfixe avec l’origine de l’API).
+     *
+     * Ex: branding/x.jpg → /storage/branding/x.jpg
      */
     public static function public(?string $path): ?string
     {
@@ -16,20 +16,33 @@ class MediaUrl
             return null;
         }
 
-        // Déjà une URL absolue (http/https) ou data URI
-        if (preg_match('#^(https?:)?//#i', $path) || str_starts_with($path, 'data:')) {
+        // Data URI : laisser tel quel
+        if (str_starts_with($path, 'data:')) {
             return $path;
         }
 
-        // Chemin déjà préfixé /storage/
+        // URL absolue : extraire /storage/... si présent (évite APP_URL incorrect)
+        if (preg_match('#^(https?:)?//#i', $path)) {
+            if (preg_match('#(/storage/.+)$#', parse_url($path, PHP_URL_PATH) ?: '', $m)) {
+                return $m[1];
+            }
+
+            return $path;
+        }
+
         if (str_starts_with($path, '/storage/')) {
-            return url($path);
+            return $path;
         }
 
         if (str_starts_with($path, 'storage/')) {
-            return url('/'.$path);
+            return '/'.$path;
         }
 
-        return Storage::disk('public')->url($path);
+        // Asset front (ex. /logo_mairie.jpg)
+        if (str_starts_with($path, '/')) {
+            return $path;
+        }
+
+        return '/storage/'.ltrim($path, '/');
     }
 }

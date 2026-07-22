@@ -32,6 +32,8 @@ class DatabaseSeeder extends Seeder
             SanctionSeeder::class,
             RetraiteSeeder::class,
             QrCodeSeeder::class,
+            AgentDocumentSeeder::class,
+            OvertimeRequestSeeder::class,
         ]);
     }
 }

@@ -8,6 +8,7 @@ use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Resources\UserResource;
 use App\Models\Agent;
 use App\Models\User;
+use App\Services\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +19,8 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    public function __construct(private readonly AuditLogger $audit) {}
+
     public function login(LoginRequest $request): JsonResponse
     {
         $login = trim($request->string('login')->toString());
@@ -55,6 +58,11 @@ class AuthController extends Controller
             'last_user_agent' => Str::limit((string) $request->userAgent(), 255, ''),
         ])->save();
 
+        $this->audit->log('auth.login', $user, [
+            'ip' => $request->ip(),
+            'device_name' => $request->input('device_name'),
+        ], $user);
+
         $deviceName = $request->string('device_name')->toString() ?: ($request->userAgent() ?: 'api-token');
         $token = $user->createToken($deviceName)->plainTextToken;
 
@@ -84,6 +92,8 @@ class AuthController extends Controller
         $user->forceFill([
             'last_logout_at' => now(),
         ])->save();
+
+        $this->audit->log('auth.logout', $user, null, $user);
 
         $request->user()->currentAccessToken()?->delete();
 

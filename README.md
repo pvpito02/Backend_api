@@ -148,7 +148,8 @@ GET http://127.0.0.1:8000/api/health
 6. ~~Paramètres (remote config, features, horaires, annonces)~~  
 7. ~~Holidays, planning shifts, missions~~  
 8. ~~Sanctions, retraites, QR codes~~  
-9. Modules restants (agent documents, overtime, audit…)
+9. ~~Dossiers agents, heures sup, audit logs~~  
+API métier principale couverte (v0.10.0).
 
 ## Licence
 

@@ -61,6 +61,11 @@ class Agent extends Model
         return $this->hasMany(Agent::class, 'supervisor_id');
     }
 
+    public function documents(): HasMany
+    {
+        return $this->hasMany(AgentDocument::class);
+    }
+
     public function getNomCompletAttribute(): string
     {
         return trim("{$this->prenom} {$this->nom}");

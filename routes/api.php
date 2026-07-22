@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\Api\AgentController;
+use App\Http\Controllers\Api\AgentDocumentController;
 use App\Http\Controllers\Api\AnnouncementController;
+use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DemandeController;
 use App\Http\Controllers\Api\DepartementController;
@@ -10,6 +12,7 @@ use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\Api\MissionController;
 use App\Http\Controllers\Api\MobileFeatureController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\OvertimeRequestController;
 use App\Http\Controllers\Api\PlanningShiftController;
 use App\Http\Controllers\Api\PointageAnomalieController;
 use App\Http\Controllers\Api\PointageController;
@@ -34,7 +37,7 @@ Route::get('/health', function () {
         'ok' => true,
         'service' => 'Backend_api',
         'app' => 'Pointage Mairie de Sandiara',
-        'version' => '0.9.0',
+        'version' => '0.10.0',
     ]);
 });
 
@@ -99,4 +102,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/qr-codes/mine', [QrCodeController::class, 'mine']);
     Route::post('/qr-codes/{qr_code}/revoke', [QrCodeController::class, 'revoke']);
     Route::apiResource('qr-codes', QrCodeController::class);
+
+    // Dossiers agents / HS / audit
+    Route::get('/dossiers-agents', [AgentDocumentController::class, 'dossiers']);
+    Route::apiResource('agent-documents', AgentDocumentController::class);
+    Route::post('/overtime-requests/{overtime_request}/decide', [OvertimeRequestController::class, 'decide']);
+    Route::apiResource('overtime-requests', OvertimeRequestController::class);
+    Route::get('/audit-logs', [AuditLogController::class, 'index']);
+    Route::get('/audit-logs/{audit_log}', [AuditLogController::class, 'show']);
 });

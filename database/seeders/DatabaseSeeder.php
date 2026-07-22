@@ -29,6 +29,9 @@ class DatabaseSeeder extends Seeder
             DemandeSeeder::class,
             AnnouncementSeeder::class,
             MissionSeeder::class,
+            SanctionSeeder::class,
+            RetraiteSeeder::class,
+            QrCodeSeeder::class,
         ]);
     }
 }

@@ -13,8 +13,11 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PlanningShiftController;
 use App\Http\Controllers\Api\PointageAnomalieController;
 use App\Http\Controllers\Api\PointageController;
+use App\Http\Controllers\Api\QrCodeController;
 use App\Http\Controllers\Api\RemoteConfigBundleController;
 use App\Http\Controllers\Api\RemoteConfigController;
+use App\Http\Controllers\Api\RetraiteController;
+use App\Http\Controllers\Api\SanctionController;
 use App\Http\Controllers\Api\SiteController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\WorkScheduleController;
@@ -31,7 +34,7 @@ Route::get('/health', function () {
         'ok' => true,
         'service' => 'Backend_api',
         'app' => 'Pointage Mairie de Sandiara',
-        'version' => '0.8.0',
+        'version' => '0.9.0',
     ]);
 });
 
@@ -88,4 +91,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('holidays', HolidayController::class);
     Route::apiResource('planning-shifts', PlanningShiftController::class);
     Route::apiResource('missions', MissionController::class);
+
+    // Sanctions / retraites / QR agents
+    Route::apiResource('sanctions', SanctionController::class);
+    Route::get('/retraites/alerts', [RetraiteController::class, 'alerts']);
+    Route::apiResource('retraites', RetraiteController::class);
+    Route::get('/qr-codes/mine', [QrCodeController::class, 'mine']);
+    Route::post('/qr-codes/{qr_code}/revoke', [QrCodeController::class, 'revoke']);
+    Route::apiResource('qr-codes', QrCodeController::class);
 });

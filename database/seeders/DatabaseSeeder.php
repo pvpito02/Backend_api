@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             RemoteConfigSeeder::class,
             HolidaySeeder::class,
             PlanningShiftSeeder::class,
+            UserSeeder::class,
         ]);
     }
 }

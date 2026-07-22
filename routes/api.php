@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -17,6 +19,33 @@ Route::get('/health', function () {
         'ok' => true,
         'service' => 'Backend_api',
         'app' => 'Pointage Mairie de Sandiara',
-        'version' => '0.1.0',
+        'version' => '0.3.0',
     ]);
+});
+
+Route::prefix('auth')->group(function () {
+    Route::post('/login', [AuthController::class, 'login']);
+
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/me', [AuthController::class, 'me']);
+        Route::post('/logout', [AuthController::class, 'logout']);
+        Route::post('/logout-all', [AuthController::class, 'logoutAll']);
+        Route::post('/change-password', [AuthController::class, 'changePassword']);
+    });
+});
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/users', [UserController::class, 'index'])
+        ->middleware('role:super_admin,admin,sous_admin');
+    Route::get('/users/{user}', [UserController::class, 'show'])
+        ->middleware('role:super_admin,admin,sous_admin');
+
+    Route::post('/users', [UserController::class, 'store'])
+        ->middleware('role:super_admin,admin');
+    Route::put('/users/{user}', [UserController::class, 'update'])
+        ->middleware('role:super_admin,admin');
+    Route::patch('/users/{user}', [UserController::class, 'update'])
+        ->middleware('role:super_admin,admin');
+    Route::delete('/users/{user}', [UserController::class, 'destroy'])
+        ->middleware('role:super_admin,admin');
 });

@@ -9,7 +9,10 @@ class UpdateAgentRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->hasRole(['super_admin', 'admin']) ?? false;
+        /** @var \App\Models\Agent $agent */
+        $agent = $this->route('agent');
+
+        return $this->user()?->can('update', $agent) ?? false;
     }
 
     public function rules(): array

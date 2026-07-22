@@ -9,7 +9,10 @@ class UpdateDepartementRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->hasRole(['super_admin', 'admin']) ?? false;
+        /** @var \App\Models\Departement $departement */
+        $departement = $this->route('departement');
+
+        return $this->user()?->can('update', $departement) ?? false;
     }
 
     public function rules(): array

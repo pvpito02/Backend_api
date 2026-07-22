@@ -15,6 +15,8 @@ class DepartementController extends Controller
 {
     public function index(Request $request): AnonymousResourceCollection
     {
+        $this->authorize('viewAny', Departement::class);
+
         $query = Departement::query()
             ->with(['responsable'])
             ->withCount('agents')
@@ -48,6 +50,8 @@ class DepartementController extends Controller
 
     public function store(StoreDepartementRequest $request): JsonResponse
     {
+        $this->authorize('create', Departement::class);
+
         $data = $request->validated();
         $data['is_active'] = $data['is_active'] ?? true;
 
@@ -62,6 +66,8 @@ class DepartementController extends Controller
 
     public function show(Departement $departement): JsonResponse
     {
+        $this->authorize('view', $departement);
+
         $departement->load(['responsable', 'agents'])->loadCount('agents');
 
         return response()->json([
@@ -71,6 +77,8 @@ class DepartementController extends Controller
 
     public function update(UpdateDepartementRequest $request, Departement $departement): JsonResponse
     {
+        $this->authorize('update', $departement);
+
         $departement->fill($request->validated())->save();
         $departement->load('responsable')->loadCount('agents');
 
@@ -82,6 +90,8 @@ class DepartementController extends Controller
 
     public function destroy(Departement $departement): JsonResponse
     {
+        $this->authorize('delete', $departement);
+
         if ($departement->agents()->exists()) {
             return response()->json([
                 'message' => 'Impossible de supprimer : des agents sont encore rattachés à ce département.',

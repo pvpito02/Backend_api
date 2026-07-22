@@ -11,8 +11,9 @@ use Illuminate\Support\Facades\Route;
 | API Routes — Mairie de Sandiara (Pointage)
 |--------------------------------------------------------------------------
 |
-| Authentification : Laravel Sanctum (Bearer tokens)
-| Clients : Admin React + Mobile Flutter
+| Auth : Sanctum Bearer tokens
+| Autorisation fine : Policies (UserPolicy, AgentPolicy, DepartementPolicy)
+| Middleware role: conservé pour les gardes rapides optionnels
 |
 */
 
@@ -21,7 +22,7 @@ Route::get('/health', function () {
         'ok' => true,
         'service' => 'Backend_api',
         'app' => 'Pointage Mairie de Sandiara',
-        'version' => '0.4.0',
+        'version' => '0.4.1',
     ]);
 });
 
@@ -37,45 +38,7 @@ Route::prefix('auth')->group(function () {
 });
 
 Route::middleware('auth:sanctum')->group(function () {
-    // —— Utilisateurs ——
-    Route::get('/users', [UserController::class, 'index'])
-        ->middleware('role:super_admin,admin,sous_admin');
-    Route::get('/users/{user}', [UserController::class, 'show'])
-        ->middleware('role:super_admin,admin,sous_admin');
-    Route::post('/users', [UserController::class, 'store'])
-        ->middleware('role:super_admin,admin');
-    Route::put('/users/{user}', [UserController::class, 'update'])
-        ->middleware('role:super_admin,admin');
-    Route::patch('/users/{user}', [UserController::class, 'update'])
-        ->middleware('role:super_admin,admin');
-    Route::delete('/users/{user}', [UserController::class, 'destroy'])
-        ->middleware('role:super_admin,admin');
-
-    // —— Départements ——
-    Route::get('/departements', [DepartementController::class, 'index'])
-        ->middleware('role:super_admin,admin,sous_admin,agent');
-    Route::get('/departements/{departement}', [DepartementController::class, 'show'])
-        ->middleware('role:super_admin,admin,sous_admin,agent');
-    Route::post('/departements', [DepartementController::class, 'store'])
-        ->middleware('role:super_admin,admin');
-    Route::put('/departements/{departement}', [DepartementController::class, 'update'])
-        ->middleware('role:super_admin,admin');
-    Route::patch('/departements/{departement}', [DepartementController::class, 'update'])
-        ->middleware('role:super_admin,admin');
-    Route::delete('/departements/{departement}', [DepartementController::class, 'destroy'])
-        ->middleware('role:super_admin,admin');
-
-    // —— Agents ——
-    Route::get('/agents', [AgentController::class, 'index'])
-        ->middleware('role:super_admin,admin,sous_admin');
-    Route::get('/agents/{agent}', [AgentController::class, 'show'])
-        ->middleware('role:super_admin,admin,sous_admin,agent');
-    Route::post('/agents', [AgentController::class, 'store'])
-        ->middleware('role:super_admin,admin');
-    Route::put('/agents/{agent}', [AgentController::class, 'update'])
-        ->middleware('role:super_admin,admin');
-    Route::patch('/agents/{agent}', [AgentController::class, 'update'])
-        ->middleware('role:super_admin,admin');
-    Route::delete('/agents/{agent}', [AgentController::class, 'destroy'])
-        ->middleware('role:super_admin,admin');
+    Route::apiResource('users', UserController::class);
+    Route::apiResource('departements', DepartementController::class);
+    Route::apiResource('agents', AgentController::class);
 });

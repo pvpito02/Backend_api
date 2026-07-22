@@ -13,11 +13,14 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class AgentController extends Controller
 {
     public function index(Request $request): AnonymousResourceCollection
     {
+        $this->authorize('viewAny', Agent::class);
+
         $query = Agent::query()
             ->with(['departement', 'supervisor', 'user'])
             ->orderBy('nom')
@@ -54,6 +57,8 @@ class AgentController extends Controller
 
     public function store(StoreAgentRequest $request): JsonResponse
     {
+        $this->authorize('create', Agent::class);
+
         $agent = DB::transaction(function () use ($request) {
             $data = $request->safe()->except(['create_user', 'password', 'password_confirmation']);
             $data['statut'] = $data['statut'] ?? 'Actif';
@@ -64,13 +69,13 @@ class AgentController extends Controller
                 $email = $data['email'] ?? null;
 
                 if (! $email) {
-                    throw \Illuminate\Validation\ValidationException::withMessages([
+                    throw ValidationException::withMessages([
                         'email' => ['Un email est requis pour créer le compte utilisateur.'],
                     ]);
                 }
 
                 if (User::query()->where('email', $email)->exists()) {
-                    throw \Illuminate\Validation\ValidationException::withMessages([
+                    throw ValidationException::withMessages([
                         'email' => ['Cet email est déjà utilisé par un compte utilisateur.'],
                     ]);
                 }
@@ -97,14 +102,9 @@ class AgentController extends Controller
         ], 201);
     }
 
-    public function show(Request $request, Agent $agent): JsonResponse
+    public function show(Agent $agent): JsonResponse
     {
-        // Un agent ne consulte que sa propre fiche
-        if ($request->user()->hasRole('agent') && $request->user()->agent?->id !== $agent->id) {
-            return response()->json([
-                'message' => 'Accès refusé à la fiche d’un autre agent.',
-            ], 403);
-        }
+        $this->authorize('view', $agent);
 
         $agent->load(['departement', 'supervisor', 'user']);
 
@@ -115,9 +115,10 @@ class AgentController extends Controller
 
     public function update(UpdateAgentRequest $request, Agent $agent): JsonResponse
     {
+        $this->authorize('update', $agent);
+
         $data = $request->validated();
 
-        // Cohérence is_active / statut
         if (array_key_exists('statut', $data) && ! array_key_exists('is_active', $data)) {
             $data['is_active'] = $data['statut'] === 'Actif';
         }
@@ -133,6 +134,8 @@ class AgentController extends Controller
 
     public function destroy(Request $request, Agent $agent): JsonResponse
     {
+        $this->authorize('delete', $agent);
+
         if ($agent->subordinates()->exists()) {
             return response()->json([
                 'message' => 'Impossible de supprimer : cet agent supervise d’autres agents.',
@@ -144,7 +147,6 @@ class AgentController extends Controller
 
             $agent->delete();
 
-            // Option : désactiver le compte lié (ne pas supprimer pour garder l’historique auth)
             if ($request->boolean('deactivate_user') && $user) {
                 $user->forceFill(['is_active' => false])->save();
                 $user->tokens()->delete();

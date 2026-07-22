@@ -18,6 +18,8 @@ class UserController extends Controller
 {
     public function index(Request $request): AnonymousResourceCollection
     {
+        $this->authorize('viewAny', User::class);
+
         $query = User::query()->with(['role', 'agent'])->latest('id');
 
         if ($request->filled('role')) {
@@ -44,6 +46,8 @@ class UserController extends Controller
 
     public function store(StoreUserRequest $request): JsonResponse
     {
+        $this->authorize('create', User::class);
+
         $user = DB::transaction(function () use ($request) {
             $data = $request->safe()->only([
                 'name', 'email', 'phone', 'password', 'role_id', 'avatar_url', 'is_active',
@@ -81,6 +85,8 @@ class UserController extends Controller
 
     public function show(User $user): JsonResponse
     {
+        $this->authorize('view', $user);
+
         $user->load(['role', 'agent']);
 
         return response()->json([
@@ -90,6 +96,8 @@ class UserController extends Controller
 
     public function update(UpdateUserRequest $request, User $user): JsonResponse
     {
+        $this->authorize('update', $user);
+
         $data = $request->safe()->only([
             'name', 'email', 'phone', 'role_id', 'avatar_url', 'is_active',
         ]);
@@ -107,19 +115,9 @@ class UserController extends Controller
         ]);
     }
 
-    public function destroy(Request $request, User $user): JsonResponse
+    public function destroy(User $user): JsonResponse
     {
-        if ($request->user()->id === $user->id) {
-            return response()->json([
-                'message' => 'Vous ne pouvez pas supprimer votre propre compte.',
-            ], 422);
-        }
-
-        if ($user->hasRole('super_admin') && ! $request->user()->hasRole('super_admin')) {
-            return response()->json([
-                'message' => 'Seul un super administrateur peut supprimer ce compte.',
-            ], 403);
-        }
+        $this->authorize('delete', $user);
 
         $user->tokens()->delete();
         $user->delete();

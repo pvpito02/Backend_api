@@ -17,5 +17,11 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->render(function (\Illuminate\Auth\Access\AuthorizationException $e, $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Accès non autorisé.',
+                ], 403);
+            }
+        });
     })->create();

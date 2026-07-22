@@ -69,6 +69,7 @@ class UserController extends Controller
                     'departement_id' => $request->input('departement_id'),
                     'email' => $user->email,
                     'telephone' => $user->phone,
+                    'photo_url' => $request->input('avatar_url'),
                     'statut' => 'Actif',
                     'is_active' => true,
                 ]);

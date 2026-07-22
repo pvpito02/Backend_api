@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'fcm' => [
+        'enabled' => (bool) env('FCM_ENABLED', false),
+        'server_key' => env('FCM_SERVER_KEY'),
+    ],
+
 ];

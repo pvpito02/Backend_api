@@ -57,13 +57,17 @@ return new class extends Migration
             $table->unique(['agent_id', 'type_document'], 'uq_agent_doc_type');
         });
 
-        // Types calendrier admin : férié / religieux / municipal
-        DB::statement("ALTER TABLE holidays MODIFY COLUMN type_holiday ENUM('FERIE','JOURNALIER','SPECIAL','RELIGIEUX','MUNICIPAL') NOT NULL DEFAULT 'FERIE'");
+        // Types calendrier admin : férié / religieux / municipal (MySQL only)
+        if (in_array(Schema::getConnection()->getDriverName(), ['mysql', 'mariadb'], true)) {
+            DB::statement("ALTER TABLE holidays MODIFY COLUMN type_holiday ENUM('FERIE','JOURNALIER','SPECIAL','RELIGIEUX','MUNICIPAL') NOT NULL DEFAULT 'FERIE'");
+        }
     }
 
     public function down(): void
     {
-        DB::statement("ALTER TABLE holidays MODIFY COLUMN type_holiday ENUM('FERIE','JOURNALIER','SPECIAL') NOT NULL DEFAULT 'FERIE'");
+        if (in_array(Schema::getConnection()->getDriverName(), ['mysql', 'mariadb'], true)) {
+            DB::statement("ALTER TABLE holidays MODIFY COLUMN type_holiday ENUM('FERIE','JOURNALIER','SPECIAL') NOT NULL DEFAULT 'FERIE'");
+        }
 
         Schema::dropIfExists('agent_documents');
         Schema::dropIfExists('planning_shifts');

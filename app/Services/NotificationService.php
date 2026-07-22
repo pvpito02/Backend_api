@@ -8,6 +8,8 @@ use Illuminate\Support\Collection;
 
 class NotificationService
 {
+    public function __construct(private readonly PushNotificationService $push) {}
+
     public function notifyUser(
         User $user,
         string $title,
@@ -18,7 +20,7 @@ class NotificationService
         ?int $relatedId = null,
         bool $playSound = false,
     ): AppNotification {
-        return AppNotification::query()->create([
+        $notification = AppNotification::query()->create([
             'user_id' => $user->id,
             'title' => $title,
             'message' => $message,
@@ -29,6 +31,16 @@ class NotificationService
             'related_id' => $relatedId,
             'play_sound' => $playSound,
         ]);
+
+        $this->push->sendToUser($user, $title, $message, array_filter([
+            'type' => $type,
+            'categorie' => $categorie,
+            'related_model' => $relatedModel,
+            'related_id' => $relatedId,
+            'notification_id' => $notification->id,
+        ]));
+
+        return $notification;
     }
 
     /**

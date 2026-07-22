@@ -149,7 +149,8 @@ GET http://127.0.0.1:8000/api/health
 7. ~~Holidays, planning shifts, missions~~  
 8. ~~Sanctions, retraites, QR codes~~  
 9. ~~Dossiers agents, heures sup, audit logs~~  
-API métier principale couverte (v0.10.0).
+10. ~~Dashboard / stats, exports CSV, device tokens (push stub), tests PHPUnit~~  
+API métier + analytics de base (v0.11.0).
 
 ## Licence
 

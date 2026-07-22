@@ -5,8 +5,11 @@ use App\Http\Controllers\Api\AgentDocumentController;
 use App\Http\Controllers\Api\AnnouncementController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DemandeController;
 use App\Http\Controllers\Api\DepartementController;
+use App\Http\Controllers\Api\DeviceTokenController;
+use App\Http\Controllers\Api\ExportController;
 use App\Http\Controllers\Api\HolidayController;
 use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\Api\MissionController;
@@ -22,6 +25,7 @@ use App\Http\Controllers\Api\RemoteConfigController;
 use App\Http\Controllers\Api\RetraiteController;
 use App\Http\Controllers\Api\SanctionController;
 use App\Http\Controllers\Api\SiteController;
+use App\Http\Controllers\Api\StatsController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\WorkScheduleController;
 use Illuminate\Support\Facades\Route;
@@ -37,7 +41,7 @@ Route::get('/health', function () {
         'ok' => true,
         'service' => 'Backend_api',
         'app' => 'Pointage Mairie de Sandiara',
-        'version' => '0.10.0',
+        'version' => '0.11.0',
     ]);
 });
 
@@ -59,6 +63,24 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('sites', SiteController::class);
 
     Route::post('/media/upload', [MediaController::class, 'store']);
+
+    // Dashboard / stats / exports
+    Route::get('/dashboard/summary', [DashboardController::class, 'summary']);
+    Route::get('/dashboard/alerts', [DashboardController::class, 'alerts']);
+    Route::get('/stats/presence', [StatsController::class, 'presence']);
+    Route::get('/stats/presence-by-service', [StatsController::class, 'presenceByService']);
+    Route::get('/stats/retards', [StatsController::class, 'retards']);
+    Route::get('/stats/demandes', [StatsController::class, 'demandes']);
+    Route::get('/reports/summary', [StatsController::class, 'reports']);
+    Route::get('/exports/pointages', [ExportController::class, 'pointages']);
+    Route::get('/exports/retards', [ExportController::class, 'retards']);
+    Route::get('/exports/agents', [ExportController::class, 'agents']);
+    Route::get('/exports/demandes', [ExportController::class, 'demandes']);
+
+    // Device tokens (push)
+    Route::get('/device-tokens', [DeviceTokenController::class, 'index']);
+    Route::post('/device-tokens', [DeviceTokenController::class, 'store']);
+    Route::delete('/device-tokens/{token}', [DeviceTokenController::class, 'destroy'])->where('token', '.*');
 
     // Pointages
     Route::get('/pointages/today', [PointageController::class, 'today']);

@@ -46,6 +46,21 @@ Lancer le serveur :
 php artisan serve
 ```
 
+## CORS
+
+L’admin React (navigateur) doit être autorisé via CORS. Config : `config/cors.php`.
+
+Variables `.env` :
+
+```env
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+CORS_SUPPORTS_CREDENTIALS=false
+```
+
+- **Admin (Vite)** : ajoute l’URL exacte (ex. `http://localhost:5173`)
+- **Mobile Flutter natif** : pas de CORS navigateur ; appels HTTP directs avec `Authorization: Bearer …`
+- Auth prévue en **Bearer tokens** → `CORS_SUPPORTS_CREDENTIALS=false`
+
 Health check :
 
 ```text

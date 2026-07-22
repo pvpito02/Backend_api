@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Agent extends Model
 {
@@ -45,8 +46,28 @@ class Agent extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function departement(): BelongsTo
+    {
+        return $this->belongsTo(Departement::class);
+    }
+
+    public function supervisor(): BelongsTo
+    {
+        return $this->belongsTo(Agent::class, 'supervisor_id');
+    }
+
+    public function subordinates(): HasMany
+    {
+        return $this->hasMany(Agent::class, 'supervisor_id');
+    }
+
     public function getNomCompletAttribute(): string
     {
         return trim("{$this->prenom} {$this->nom}");
+    }
+
+    public function getServiceAttribute(): ?string
+    {
+        return $this->departement?->nom;
     }
 }

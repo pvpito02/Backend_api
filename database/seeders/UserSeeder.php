@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\Agent;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -11,6 +10,7 @@ class UserSeeder extends Seeder
 {
     /**
      * Comptes de test — mot de passe : Admin@2026! (hashé via cast User).
+     * La fiche agent EMP001 est créée dans AgentSeeder.
      */
     public function run(): void
     {
@@ -53,7 +53,7 @@ class UserSeeder extends Seeder
             ]
         );
 
-        $agentUser = User::query()->updateOrCreate(
+        User::query()->updateOrCreate(
             ['email' => 'agent.ndiaye@sandiara.sn'],
             [
                 'role_id' => $roles['agent'] ?? null,
@@ -62,25 +62,6 @@ class UserSeeder extends Seeder
                 'password' => $password,
                 'is_active' => true,
                 'email_verified_at' => now(),
-            ]
-        );
-
-        Agent::query()->updateOrCreate(
-            ['matricule' => 'EMP001'],
-            [
-                'user_id' => $agentUser->id,
-                'prenom' => 'Mamadou',
-                'nom' => 'Ndiaye',
-                'sexe' => 'M',
-                'date_naissance' => '1988-03-12',
-                'date_entree' => '2015-01-15',
-                'poste' => 'Secrétaire municipal',
-                'email' => $agentUser->email,
-                'telephone' => $agentUser->phone,
-                'photo_url' => 'https://i.pravatar.cc/160?img=12',
-                'statut' => 'Actif',
-                'is_active' => true,
-                'solde_conges' => 22.00,
             ]
         );
     }

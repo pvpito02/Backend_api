@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
             HolidaySeeder::class,
             PlanningShiftSeeder::class,
             UserSeeder::class,
+            AgentSeeder::class,
         ]);
     }
 }

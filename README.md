@@ -117,7 +117,8 @@ GET http://127.0.0.1:8000/api/health
 
 1. ~~Migrations + seeders~~  
 2. ~~Auth login / logout / me + users CRUD (Sanctum)~~  
-3. Modules agents, pointages, demandes, paramètres…
+3. ~~Agents + départements CRUD~~  
+4. Modules pointages, demandes, paramètres…
 
 ## Licence
 

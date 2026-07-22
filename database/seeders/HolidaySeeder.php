@@ -14,8 +14,8 @@ class HolidaySeeder extends Seeder
         $holidays = [
             ['Jour de l’An', '2026-01-01', 'FERIE'],
             ['Fête de la Victoire', '2026-05-01', 'FERIE'],
-            ['Aïd al-Adha', '2026-05-31', 'FERIE'],
-            ['Tabaski', '2026-06-06', 'FERIE'],
+            ['Aïd al-Adha', '2026-05-31', 'RELIGIEUX'],
+            ['Tabaski', '2026-06-06', 'RELIGIEUX'],
         ];
 
         DB::table('holidays')->upsert(

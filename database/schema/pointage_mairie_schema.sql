@@ -12,6 +12,11 @@
 --   - Annonces avec image / lieu / période
 --   - Modules mobile + config remote (paramètres admin)
 --   - Horaires de travail + device tokens (push futur)
+-- Patch avant Tâche 3 :
+--   - Paramètres sécurité / logo / retraite en remote_configs
+--   - planning_shifts, agent_documents
+--   - pointages late_minutes / photo / ack retards
+--   - holidays RELIGIEUX / MUNICIPAL
 -- =============================================================
 
 SET NAMES utf8mb4;
@@ -101,6 +106,7 @@ CREATE TABLE IF NOT EXISTS agents (
   sexe ENUM('M','F') NULL,
   date_naissance DATE NULL,
   date_entree DATE NULL,
+  date_fin_contrat DATE NULL,
   poste VARCHAR(150) NULL,
   departement_id BIGINT UNSIGNED NULL,
   supervisor_id BIGINT UNSIGNED NULL,
@@ -110,6 +116,7 @@ CREATE TABLE IF NOT EXISTS agents (
   statut ENUM('Actif','Inactif','Retraité','Suspendu') NOT NULL DEFAULT 'Actif',
   is_active TINYINT(1) NOT NULL DEFAULT 1,
   heure_travail_par_jour DECIMAL(4,2) NULL DEFAULT 8.00,
+  solde_conges DECIMAL(5,2) NULL DEFAULT 0.00,
   created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -158,6 +165,7 @@ CREATE TABLE IF NOT EXISTS pointages (
   date_pointage DATE NOT NULL,
   heure_pointage TIME NOT NULL,
   statut ENUM('A_L_HEURE','RETARD','ANOMALIE','VALIDE','MODIFIE') NOT NULL DEFAULT 'A_L_HEURE',
+  late_minutes INT UNSIGNED NULL DEFAULT 0,
   source ENUM('QR','MANUEL','GPS','OFFLINE','AUTRE') NOT NULL DEFAULT 'QR',
   latitude DECIMAL(10,8) NULL,
   longitude DECIMAL(11,8) NULL,
@@ -165,11 +173,15 @@ CREATE TABLE IF NOT EXISTS pointages (
   is_visitor TINYINT(1) NOT NULL DEFAULT 0,
   pending_sync TINYINT(1) NOT NULL DEFAULT 0,
   note TEXT NULL,
+  photo_path VARCHAR(255) NULL,
+  acknowledged_at TIMESTAMP NULL DEFAULT NULL,
+  acknowledged_by BIGINT UNSIGNED NULL,
   created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   CONSTRAINT fk_pointages_agent FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT fk_pointages_site FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT fk_pointages_ack FOREIGN KEY (acknowledged_by) REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE,
   INDEX idx_pointages_agent_date (agent_id, date_pointage),
   INDEX idx_pointages_date_statut (date_pointage, statut)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -371,12 +383,51 @@ CREATE TABLE IF NOT EXISTS holidays (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   libelle VARCHAR(150) NOT NULL,
   date_holiday DATE NOT NULL,
-  type_holiday ENUM('FERIE','JOURNALIER','SPECIAL') NOT NULL DEFAULT 'FERIE',
+  type_holiday ENUM('FERIE','JOURNALIER','SPECIAL','RELIGIEUX','MUNICIPAL') NOT NULL DEFAULT 'FERIE',
   is_active TINYINT(1) NOT NULL DEFAULT 1,
   created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uk_holiday_date (date_holiday)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Planning & Horaires (admin /planning)
+CREATE TABLE IF NOT EXISTS planning_shifts (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  departement_id BIGINT UNSIGNED NULL,
+  service_label VARCHAR(150) NULL,
+  shift_start TIME NOT NULL,
+  shift_end TIME NOT NULL,
+  manager_name VARCHAR(150) NOT NULL,
+  required_count INT UNSIGNED NOT NULL DEFAULT 1,
+  assigned_count INT UNSIGNED NOT NULL DEFAULT 0,
+  statut ENUM('CONFIRME','PROVISOIRE','EN_ATTENTE') NOT NULL DEFAULT 'PROVISOIRE',
+  date_effective DATE NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_planning_dept FOREIGN KEY (departement_id) REFERENCES departements(id) ON DELETE SET NULL ON UPDATE CASCADE,
+  INDEX idx_planning_dept_statut (departement_id, statut)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Dossiers agents (photo, contrat, CNI, historique)
+CREATE TABLE IF NOT EXISTS agent_documents (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  agent_id BIGINT UNSIGNED NOT NULL,
+  type_document ENUM('PHOTO','CONTRAT','CNI','HISTORIQUE','AUTRE') NOT NULL,
+  file_path VARCHAR(255) NULL,
+  original_name VARCHAR(255) NULL,
+  mime_type VARCHAR(100) NULL,
+  is_present TINYINT(1) NOT NULL DEFAULT 1,
+  uploaded_by BIGINT UNSIGNED NULL,
+  notes TEXT NULL,
+  created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_agent_doc_type (agent_id, type_document),
+  CONSTRAINT fk_agent_docs_agent FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_agent_docs_uploader FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Clés/valeurs (paramètres admin → mobile)
@@ -515,7 +566,8 @@ INSERT INTO remote_configs (key_name, value_text, description) VALUES
   ('app_name', 'Système de Pointage QR', 'Nom de l’application'),
   ('org_name', 'Mairie de Sandiara', 'Organisme'),
   ('tagline', 'Une commune green and clean', 'Slogan'),
-  ('app_version', '1.0.0', 'Version minimale mobile'),
+  ('logo_url', '/logo_mairie.jpg', 'Logo application (admin / mobile)'),
+  ('app_version', '1.0.0', 'Version minimale mobile (minAppVersion)'),
   ('force_app_update', '0', 'Forcer la mise à jour mobile'),
   ('maintenance_mode', '0', 'Mode maintenance mobile'),
   ('support_phone', '+221 33 XXX XX XX', 'Téléphone support'),
@@ -525,14 +577,33 @@ INSERT INTO remote_configs (key_name, value_text, description) VALUES
   ('require_photo_on_scan', '0', 'Photo obligatoire au scan'),
   ('default_radius_meters', '150', 'Rayon GPS par défaut'),
   ('mission_exception', '1', 'Exception GPS en mission'),
+  ('session_minutes', '60', 'Durée de session admin'),
+  ('max_login_attempts', '5', 'Tentatives de connexion max'),
+  ('lock_minutes', '15', 'Verrouillage après échecs (minutes)'),
+  ('force_password_change_days', '90', 'Forcer changement MDP (jours)'),
+  ('min_password_length', '8', 'Longueur minimale du mot de passe'),
+  ('require_2fa_admin', '0', '2FA obligatoire pour admins'),
+  ('log_admin_connections', '1', 'Journaliser connexions admin'),
+  ('biometric_mobile', '1', 'Biométrie activable sur mobile'),
+  ('pin_mobile', '0', 'PIN mobile activable'),
   ('notif_retards', '1', 'Notifier les retards'),
+  ('notif_daily_report', '1', 'Rapport journalier RH'),
   ('notif_absence', '1', 'Alerte absence'),
   ('notif_reminder_scan', '1', 'Rappel pointage'),
-  ('session_minutes', '60', 'Durée de session admin'),
-  ('demo_mode', '1', 'Mode démonstration');
+  ('demo_mode', '1', 'Mode démonstration'),
+  ('retraite_age_minimum', '60', 'Âge légal départ retraite'),
+  ('retraite_age_limite', '65', 'Âge limite d’activité'),
+  ('retraite_alerte_mois', '6,3,1', 'Seuils d’alerte retraite (mois)');
 
 INSERT INTO holidays (libelle, date_holiday, type_holiday) VALUES
   ('Jour de l’An', '2026-01-01', 'FERIE'),
   ('Fête de la Victoire', '2026-05-01', 'FERIE'),
-  ('Aïd al-Adha', '2026-05-31', 'FERIE'),
-  ('Tabaski', '2026-06-06', 'FERIE');
+  ('Aïd al-Adha', '2026-05-31', 'RELIGIEUX'),
+  ('Tabaski', '2026-06-06', 'RELIGIEUX');
+
+INSERT INTO planning_shifts (departement_id, service_label, shift_start, shift_end, manager_name, required_count, assigned_count, statut)
+SELECT d.id, 'État Civil', '08:00:00', '17:00:00', 'Mme Diallo', 4, 4, 'CONFIRME'
+FROM departements d WHERE d.code = 'ETAT_CIVIL'
+UNION ALL
+SELECT d.id, 'Finances', '09:00:00', '18:00:00', 'M. Ndiaye', 3, 2, 'PROVISOIRE'
+FROM departements d WHERE d.code = 'FINANCES';

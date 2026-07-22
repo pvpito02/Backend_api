@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\MediaUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -15,7 +16,8 @@ class UserResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'phone' => $this->phone,
-            'avatar_url' => $this->avatar_url,
+            'avatar_url' => MediaUrl::public($this->avatar_url),
+            'avatar_path' => $this->avatar_url,
             'is_active' => (bool) $this->is_active,
             'role' => $this->whenLoaded('role', fn () => $this->role ? [
                 'id' => $this->role->id,

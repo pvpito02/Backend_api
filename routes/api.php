@@ -2,7 +2,10 @@
 
 use App\Http\Controllers\Api\AgentController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\DemandeController;
 use App\Http\Controllers\Api\DepartementController;
+use App\Http\Controllers\Api\MediaController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PointageAnomalieController;
 use App\Http\Controllers\Api\PointageController;
 use App\Http\Controllers\Api\SiteController;
@@ -13,10 +16,6 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 | API Routes — Mairie de Sandiara (Pointage)
 |--------------------------------------------------------------------------
-|
-| Auth : Sanctum Bearer tokens
-| Autorisation : Policies
-|
 */
 
 Route::get('/health', function () {
@@ -24,7 +23,7 @@ Route::get('/health', function () {
         'ok' => true,
         'service' => 'Backend_api',
         'app' => 'Pointage Mairie de Sandiara',
-        'version' => '0.5.0',
+        'version' => '0.6.0',
     ]);
 });
 
@@ -45,7 +44,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('agents', AgentController::class);
     Route::apiResource('sites', SiteController::class);
 
-    // Pointages — routes custom avant apiResource
+    // Médias (storage:link → /storage/...)
+    Route::post('/media/upload', [MediaController::class, 'store']);
+
+    // Pointages
     Route::get('/pointages/today', [PointageController::class, 'today']);
     Route::post('/pointages/scan', [PointageController::class, 'scan']);
     Route::post('/pointages/sync', [PointageController::class, 'sync']);
@@ -55,4 +57,15 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/pointage-anomalies', [PointageAnomalieController::class, 'index']);
     Route::post('/pointage-anomalies/{pointageAnomalie}/resolve', [PointageAnomalieController::class, 'resolve']);
+
+    // Demandes RH
+    Route::post('/demandes/{demande}/decide', [DemandeController::class, 'decide']);
+    Route::post('/demandes/{demande}/cancel', [DemandeController::class, 'cancel']);
+    Route::apiResource('demandes', DemandeController::class)->except(['update']);
+
+    // Notifications
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllRead']);
+    Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
 });

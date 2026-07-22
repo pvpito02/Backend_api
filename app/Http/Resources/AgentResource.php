@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\MediaUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -37,7 +38,8 @@ class AgentResource extends JsonResource
             ] : null),
             'email' => $this->email,
             'telephone' => $this->telephone,
-            'photo_url' => $this->photo_url,
+            'photo_url' => MediaUrl::public($this->photo_url),
+            'photo_path' => $this->photo_url,
             'statut' => $this->statut,
             'is_active' => (bool) $this->is_active,
             'heure_travail_par_jour' => $this->heure_travail_par_jour !== null

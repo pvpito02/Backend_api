@@ -38,8 +38,33 @@ Migrations + seeders :
 
 ```bash
 php artisan migrate:fresh --seed
+php artisan storage:link
 php artisan serve
 ```
+
+## Médias (photos / documents)
+
+Les fichiers (avatar, photo agent, justificatifs demandes, photo scan, annonces) sont stockés sur le disk **`public`** :
+
+```text
+storage/app/public/...  →  URL  /storage/...
+```
+
+Commande obligatoire une fois :
+
+```bash
+php artisan storage:link
+```
+
+Upload API :
+
+```text
+POST /api/media/upload
+multipart/form-data : file + folder
+folders : avatar | agent_photo | agent_document | demande_document | pointage_photo | announcement | logo
+```
+
+Réponse : `{ path, url }` — stocker `path` en base ; les Resources exposent l’URL publique.
 
 ## Auth API (Sanctum)
 
@@ -119,7 +144,8 @@ GET http://127.0.0.1:8000/api/health
 2. ~~Auth login / logout / me + users CRUD (Sanctum)~~  
 3. ~~Agents + départements CRUD~~  
 4. ~~Sites + pointages (scan / sync / anomalies)~~  
-5. Modules demandes, paramètres…
+5. ~~Demandes RH + notifications + media storage~~  
+6. Modules paramètres / annonces / remote config…
 
 ## Licence
 

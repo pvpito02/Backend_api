@@ -26,6 +26,7 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             AgentSeeder::class,
             PointageSeeder::class,
+            DemandeSeeder::class,
         ]);
     }
 }

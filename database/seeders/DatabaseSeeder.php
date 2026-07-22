@@ -25,6 +25,7 @@ class DatabaseSeeder extends Seeder
             PlanningShiftSeeder::class,
             UserSeeder::class,
             AgentSeeder::class,
+            PointageSeeder::class,
         ]);
     }
 }

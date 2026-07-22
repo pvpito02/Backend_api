@@ -3,6 +3,9 @@
 use App\Http\Controllers\Api\AgentController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DepartementController;
+use App\Http\Controllers\Api\PointageAnomalieController;
+use App\Http\Controllers\Api\PointageController;
+use App\Http\Controllers\Api\SiteController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -12,8 +15,7 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 |
 | Auth : Sanctum Bearer tokens
-| Autorisation fine : Policies (UserPolicy, AgentPolicy, DepartementPolicy)
-| Middleware role: conservé pour les gardes rapides optionnels
+| Autorisation : Policies
 |
 */
 
@@ -22,7 +24,7 @@ Route::get('/health', function () {
         'ok' => true,
         'service' => 'Backend_api',
         'app' => 'Pointage Mairie de Sandiara',
-        'version' => '0.4.1',
+        'version' => '0.5.0',
     ]);
 });
 
@@ -41,4 +43,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('users', UserController::class);
     Route::apiResource('departements', DepartementController::class);
     Route::apiResource('agents', AgentController::class);
+    Route::apiResource('sites', SiteController::class);
+
+    // Pointages — routes custom avant apiResource
+    Route::get('/pointages/today', [PointageController::class, 'today']);
+    Route::post('/pointages/scan', [PointageController::class, 'scan']);
+    Route::post('/pointages/sync', [PointageController::class, 'sync']);
+    Route::post('/pointages/{pointage}/acknowledge', [PointageController::class, 'acknowledge']);
+    Route::post('/pointages/{pointage}/anomalies', [PointageController::class, 'reportAnomalie']);
+    Route::apiResource('pointages', PointageController::class);
+
+    Route::get('/pointage-anomalies', [PointageAnomalieController::class, 'index']);
+    Route::post('/pointage-anomalies/{pointageAnomalie}/resolve', [PointageAnomalieController::class, 'resolve']);
 });

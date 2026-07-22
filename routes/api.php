@@ -5,9 +5,12 @@ use App\Http\Controllers\Api\AnnouncementController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DemandeController;
 use App\Http\Controllers\Api\DepartementController;
+use App\Http\Controllers\Api\HolidayController;
 use App\Http\Controllers\Api\MediaController;
+use App\Http\Controllers\Api\MissionController;
 use App\Http\Controllers\Api\MobileFeatureController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\PlanningShiftController;
 use App\Http\Controllers\Api\PointageAnomalieController;
 use App\Http\Controllers\Api\PointageController;
 use App\Http\Controllers\Api\RemoteConfigBundleController;
@@ -28,7 +31,7 @@ Route::get('/health', function () {
         'ok' => true,
         'service' => 'Backend_api',
         'app' => 'Pointage Mairie de Sandiara',
-        'version' => '0.7.0',
+        'version' => '0.8.0',
     ]);
 });
 
@@ -80,4 +83,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('mobile-features', MobileFeatureController::class)->only(['index', 'show', 'update']);
     Route::apiResource('work-schedules', WorkScheduleController::class)->only(['index', 'show', 'update']);
     Route::apiResource('announcements', AnnouncementController::class);
+
+    // Calendrier / planning / missions
+    Route::apiResource('holidays', HolidayController::class);
+    Route::apiResource('planning-shifts', PlanningShiftController::class);
+    Route::apiResource('missions', MissionController::class);
 });

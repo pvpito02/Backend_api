@@ -28,6 +28,7 @@ class DatabaseSeeder extends Seeder
             PointageSeeder::class,
             DemandeSeeder::class,
             AnnouncementSeeder::class,
+            MissionSeeder::class,
         ]);
     }
 }

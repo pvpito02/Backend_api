@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\QrCodeController;
 use App\Http\Controllers\Api\RemoteConfigBundleController;
 use App\Http\Controllers\Api\RemoteConfigController;
 use App\Http\Controllers\Api\RetraiteController;
+use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\SanctionController;
 use App\Http\Controllers\Api\SiteController;
 use App\Http\Controllers\Api\StatsController;
@@ -41,7 +42,7 @@ Route::get('/health', function () {
         'ok' => true,
         'service' => 'Backend_api',
         'app' => 'Pointage Mairie de Sandiara',
-        'version' => '0.11.0',
+        'version' => '0.11.1',
     ]);
 });
 
@@ -58,6 +59,7 @@ Route::prefix('auth')->group(function () {
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('users', UserController::class);
+    Route::get('/roles', [RoleController::class, 'index']);
     Route::apiResource('departements', DepartementController::class);
     Route::apiResource('agents', AgentController::class);
     Route::apiResource('sites', SiteController::class);

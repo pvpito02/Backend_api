@@ -9,6 +9,7 @@ use App\Http\Resources\AgentResource;
 use App\Models\Agent;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\RealtimePublisher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -17,6 +18,8 @@ use Illuminate\Validation\ValidationException;
 
 class AgentController extends Controller
 {
+    public function __construct(private readonly RealtimePublisher $realtime) {}
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorize('viewAny', Agent::class);
@@ -96,6 +99,17 @@ class AgentController extends Controller
             return Agent::query()->create($data)->load(['departement', 'supervisor', 'user']);
         });
 
+        $this->publishAgentEvent('agent.created', $agent);
+        if ($agent->user_id) {
+            $this->realtime->publish('user.created', [
+                'resource' => 'user',
+                'id' => $agent->user_id,
+                'role' => 'agent',
+                'is_active' => true,
+                'agent_id' => $agent->id,
+            ], 'admin', null);
+        }
+
         return response()->json([
             'message' => 'Agent créé.',
             'agent' => new AgentResource($agent),
@@ -126,6 +140,8 @@ class AgentController extends Controller
         $agent->fill($data)->save();
         $agent->load(['departement', 'supervisor', 'user']);
 
+        $this->publishAgentEvent('agent.updated', $agent);
+
         return response()->json([
             'message' => 'Agent mis à jour.',
             'agent' => new AgentResource($agent),
@@ -142,19 +158,62 @@ class AgentController extends Controller
             ], 422);
         }
 
-        DB::transaction(function () use ($agent, $request) {
+        $agentId = $agent->id;
+        $userId = $agent->user_id;
+        $deactivateUser = $request->boolean('deactivate_user');
+
+        DB::transaction(function () use ($agent, $request, $deactivateUser) {
             $user = $agent->user;
 
             $agent->delete();
 
-            if ($request->boolean('deactivate_user') && $user) {
+            if ($deactivateUser && $user) {
                 $user->forceFill(['is_active' => false])->save();
                 $user->tokens()->delete();
             }
         });
 
+        $this->realtime->publishForAdminAndAgent('agent.deleted', [
+            'resource' => 'agent',
+            'id' => $agentId,
+            'user_id' => $userId,
+            'action' => 'delete',
+        ], $agentId);
+
+        if ($deactivateUser && $userId) {
+            $this->realtime->publish('user.updated', [
+                'resource' => 'user',
+                'id' => $userId,
+                'role' => 'agent',
+                'is_active' => false,
+                'agent_id' => null,
+                'action' => 'agent_deleted',
+            ], 'admin', null);
+            $this->realtime->publish('user.updated', [
+                'resource' => 'user',
+                'id' => $userId,
+                'role' => 'agent',
+                'is_active' => false,
+                'agent_id' => null,
+                'action' => 'agent_deleted',
+            ], 'user', (int) $userId);
+        }
+
         return response()->json([
             'message' => 'Agent supprimé.',
         ]);
+    }
+
+    /** @param  array<string, mixed>  $extra */
+    private function publishAgentEvent(string $type, Agent $agent, array $extra = []): void
+    {
+        $this->realtime->publishForAdminAndAgent($type, array_merge([
+            'resource' => 'agent',
+            'id' => $agent->id,
+            'user_id' => $agent->user_id,
+            'is_active' => (bool) $agent->is_active,
+            'statut' => $agent->statut,
+            'departement_id' => $agent->departement_id,
+        ], $extra), (int) $agent->id);
     }
 }

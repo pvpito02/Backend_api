@@ -10,6 +10,7 @@ use App\Http\Resources\UserResource;
 use App\Models\Agent;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\RealtimePublisher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -17,6 +18,8 @@ use Illuminate\Support\Facades\DB;
 
 class UserController extends Controller
 {
+    public function __construct(private readonly RealtimePublisher $realtime) {}
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorize('viewAny', User::class);
@@ -84,6 +87,11 @@ class UserController extends Controller
 
             return $user->load(['role', 'agent.departement']);
         });
+
+        $this->publishUserEvent('user.created', $user);
+        if ($user->agent) {
+            $this->publishAgentEvent('agent.created', $user->agent);
+        }
 
         return response()->json([
             'message' => 'Utilisateur créé.',
@@ -166,6 +174,11 @@ class UserController extends Controller
             return $user->load(['role', 'agent.departement']);
         });
 
+        $this->publishUserEvent('user.updated', $user);
+        if ($user->agent) {
+            $this->publishAgentEvent('agent.updated', $user->agent);
+        }
+
         return response()->json([
             'message' => 'Utilisateur mis à jour.',
             'user' => new UserResource($user),
@@ -185,15 +198,24 @@ class UserController extends Controller
 
         $user->tokens()->delete();
 
+        $user->load(['role', 'agent.departement']);
+        $this->publishUserEvent('user.updated', $user, ['action' => 'password_reset']);
+
         return response()->json([
             'message' => 'Mot de passe réinitialisé. L’utilisateur devra se reconnecter.',
-            'user' => new UserResource($user->load(['role', 'agent.departement'])),
+            'user' => new UserResource($user),
         ]);
     }
 
     public function destroy(User $user): JsonResponse
     {
         $this->authorize('delete', $user);
+
+        $user->load(['role', 'agent']);
+        $userId = $user->id;
+        $agent = $user->agent;
+        $agentId = $agent?->id;
+        $roleName = $user->role?->name;
 
         DB::transaction(function () use ($user) {
             $user->tokens()->delete();
@@ -207,8 +229,55 @@ class UserController extends Controller
             $user->delete();
         });
 
+        $this->realtime->publish('user.deleted', [
+            'resource' => 'user',
+            'id' => $userId,
+            'role' => $roleName,
+            'agent_id' => $agentId,
+        ], 'admin', null);
+
+        if ($agentId) {
+            $this->realtime->publishForAdminAndAgent('agent.updated', [
+                'resource' => 'agent',
+                'id' => $agentId,
+                'user_id' => null,
+                'is_active' => false,
+                'statut' => 'Inactif',
+                'action' => 'user_deleted',
+            ], (int) $agentId);
+        }
+
         return response()->json([
             'message' => 'Utilisateur supprimé.',
         ]);
+    }
+
+    /** @param  array<string, mixed>  $extra */
+    private function publishUserEvent(string $type, User $user, array $extra = []): void
+    {
+        $payload = array_merge([
+            'resource' => 'user',
+            'id' => $user->id,
+            'role' => $user->role?->name
+                ?? Role::query()->whereKey($user->role_id)->value('name'),
+            'is_active' => (bool) $user->is_active,
+            'agent_id' => $user->agent?->id,
+        ], $extra);
+
+        $this->realtime->publish($type, $payload, 'admin', null);
+        $this->realtime->publish($type, $payload, 'user', (int) $user->id);
+    }
+
+    /** @param  array<string, mixed>  $extra */
+    private function publishAgentEvent(string $type, Agent $agent, array $extra = []): void
+    {
+        $this->realtime->publishForAdminAndAgent($type, array_merge([
+            'resource' => 'agent',
+            'id' => $agent->id,
+            'user_id' => $agent->user_id,
+            'is_active' => (bool) $agent->is_active,
+            'statut' => $agent->statut,
+            'departement_id' => $agent->departement_id,
+        ], $extra), (int) $agent->id);
     }
 }

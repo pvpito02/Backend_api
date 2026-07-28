@@ -246,6 +246,8 @@ class PointageController extends Controller
         $pointage->fill($data)->save();
         $pointage->load(['agent.departement', 'site', 'anomalies']);
 
+        $this->publishPointageEvent('pointage.updated', $pointage, ['action' => 'update']);
+
         return response()->json([
             'message' => 'Pointage mis à jour.',
             'pointage' => new PointageResource($pointage),
@@ -256,7 +258,21 @@ class PointageController extends Controller
     {
         $this->authorize('delete', $pointage);
 
+        $agentId = (int) $pointage->agent_id;
+        $snapshot = [
+            'resource' => 'pointage',
+            'id' => $pointage->id,
+            'agent_id' => $pointage->agent_id,
+            'type' => $pointage->type,
+            'statut' => $pointage->statut,
+            'date_pointage' => $pointage->date_pointage?->format('Y-m-d')
+                ?? (string) $pointage->date_pointage,
+            'action' => 'delete',
+        ];
+
         $pointage->delete();
+
+        $this->realtime->publishForAdminAndAgent('pointage.deleted', $snapshot, $agentId);
 
         return response()->json(['message' => 'Pointage supprimé.']);
     }
@@ -276,9 +292,12 @@ class PointageController extends Controller
             'acknowledged_by' => request()->user()->id,
         ])->save();
 
+        $fresh = $pointage->fresh()->load(['agent.departement', 'site']);
+        $this->publishPointageEvent('pointage.updated', $fresh, ['action' => 'acknowledge']);
+
         return response()->json([
             'message' => 'Retard marqué comme traité.',
-            'pointage' => new PointageResource($pointage->fresh()->load(['agent.departement', 'site'])),
+            'pointage' => new PointageResource($fresh),
         ]);
     }
 
@@ -298,6 +317,12 @@ class PointageController extends Controller
         if ($pointage->statut !== 'ANOMALIE') {
             $pointage->update(['statut' => 'ANOMALIE']);
         }
+
+        $pointage->refresh();
+        $this->publishPointageEvent('pointage.updated', $pointage, [
+            'action' => 'anomalie',
+            'anomalie_id' => $anomalie->id,
+        ]);
 
         return response()->json([
             'message' => 'Anomalie signalée.',
@@ -334,5 +359,19 @@ class PointageController extends Controller
             'next_type' => $this->pointageService->nextType($agent, now()),
             'pointages' => PointageResource::collection($items),
         ]);
+    }
+
+    /** @param  array<string, mixed>  $extra */
+    private function publishPointageEvent(string $type, Pointage $pointage, array $extra = []): void
+    {
+        $this->realtime->publishForAdminAndAgent($type, array_merge([
+            'resource' => 'pointage',
+            'id' => $pointage->id,
+            'agent_id' => $pointage->agent_id,
+            'type' => $pointage->type,
+            'statut' => $pointage->statut,
+            'date_pointage' => $pointage->date_pointage?->format('Y-m-d')
+                ?? (string) $pointage->date_pointage,
+        ], $extra), (int) $pointage->agent_id);
     }
 }

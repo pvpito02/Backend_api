@@ -5,12 +5,15 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PointageAnomalieResource;
 use App\Models\PointageAnomalie;
+use App\Services\RealtimePublisher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class PointageAnomalieController extends Controller
 {
+    public function __construct(private readonly RealtimePublisher $realtime) {}
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorize('viewAny', PointageAnomalie::class);
@@ -37,6 +40,22 @@ class PointageAnomalieController extends Controller
             'resolved_by' => request()->user()->id,
             'resolved_at' => now(),
         ])->save();
+
+        $pointageAnomalie->load('pointage');
+        $pointage = $pointageAnomalie->pointage;
+        if ($pointage) {
+            $this->realtime->publishForAdminAndAgent('pointage.updated', [
+                'resource' => 'pointage',
+                'id' => $pointage->id,
+                'agent_id' => $pointage->agent_id,
+                'type' => $pointage->type,
+                'statut' => $pointage->statut,
+                'date_pointage' => $pointage->date_pointage?->format('Y-m-d')
+                    ?? (string) $pointage->date_pointage,
+                'action' => 'anomalie_resolved',
+                'anomalie_id' => $pointageAnomalie->id,
+            ], (int) $pointage->agent_id);
+        }
 
         return response()->json([
             'message' => 'Anomalie résolue.',

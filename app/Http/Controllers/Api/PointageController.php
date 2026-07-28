@@ -14,6 +14,7 @@ use App\Models\Agent;
 use App\Models\Pointage;
 use App\Models\PointageAnomalie;
 use App\Services\PointageService;
+use App\Services\RealtimePublisher;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,7 +23,10 @@ use Illuminate\Support\Facades\DB;
 
 class PointageController extends Controller
 {
-    public function __construct(private readonly PointageService $pointageService) {}
+    public function __construct(
+        private readonly PointageService $pointageService,
+        private readonly RealtimePublisher $realtime,
+    ) {}
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -106,6 +110,16 @@ class PointageController extends Controller
             'pending_sync' => false,
         ]);
 
+        $this->realtime->publishForAdminAndAgent('pointage.created', [
+            'resource' => 'pointage',
+            'id' => $pointage->id,
+            'agent_id' => $pointage->agent_id,
+            'type' => $pointage->type,
+            'statut' => $pointage->statut,
+            'date_pointage' => $pointage->date_pointage?->format('Y-m-d')
+                ?? (string) $pointage->date_pointage,
+        ], (int) $pointage->agent_id);
+
         return response()->json([
             'message' => 'Pointage enregistré.',
             'pointage' => new PointageResource($pointage),
@@ -146,6 +160,17 @@ class PointageController extends Controller
                     'ok' => true,
                     'pointage' => new PointageResource($pointage),
                 ];
+
+                $this->realtime->publishForAdminAndAgent('pointage.created', [
+                    'resource' => 'pointage',
+                    'id' => $pointage->id,
+                    'agent_id' => $pointage->agent_id,
+                    'type' => $pointage->type,
+                    'statut' => $pointage->statut,
+                    'date_pointage' => $pointage->date_pointage?->format('Y-m-d')
+                        ?? (string) $pointage->date_pointage,
+                    'source' => 'OFFLINE',
+                ], (int) $pointage->agent_id);
             } catch (\Throwable $e) {
                 $message = method_exists($e, 'errors')
                     ? collect($e->errors())->flatten()->first()
@@ -182,6 +207,17 @@ class PointageController extends Controller
         $data['late_minutes'] = $data['late_minutes'] ?? 0;
 
         $pointage = Pointage::query()->create($data)->load(['agent.departement', 'site']);
+
+        $this->realtime->publishForAdminAndAgent('pointage.created', [
+            'resource' => 'pointage',
+            'id' => $pointage->id,
+            'agent_id' => $pointage->agent_id,
+            'type' => $pointage->type,
+            'statut' => $pointage->statut,
+            'date_pointage' => $pointage->date_pointage?->format('Y-m-d')
+                ?? (string) $pointage->date_pointage,
+            'source' => $pointage->source,
+        ], (int) $pointage->agent_id);
 
         return response()->json([
             'message' => 'Pointage créé (manuel).',

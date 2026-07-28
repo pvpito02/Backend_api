@@ -10,6 +10,7 @@ use App\Models\AbsenceRequest;
 use App\Services\DemandeService;
 use App\Services\MediaService;
 use App\Services\NotificationService;
+use App\Services\RealtimePublisher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -21,6 +22,7 @@ class DemandeController extends Controller
         private readonly DemandeService $demandeService,
         private readonly NotificationService $notificationService,
         private readonly MediaService $mediaService,
+        private readonly RealtimePublisher $realtime,
     ) {}
 
     public function index(Request $request): AnonymousResourceCollection
@@ -125,6 +127,14 @@ class DemandeController extends Controller
             return $demande->load(['agent.departement', 'history']);
         });
 
+        $this->realtime->publishForAdminAndAgent('demande.created', [
+            'resource' => 'demande',
+            'id' => $demande->id,
+            'agent_id' => $demande->agent_id,
+            'type_demande' => $demande->type_demande,
+            'statut' => $demande->statut,
+        ], (int) $demande->agent_id);
+
         return response()->json([
             'message' => 'Demande créée.',
             'demande' => new DemandeResource($demande),
@@ -139,6 +149,14 @@ class DemandeController extends Controller
         if ($request->user()->isAdminStaff() && $demande->statut === 'EN_ATTENTE') {
             $this->demandeService->markAsEnCours($demande, $request->user());
             $demande->refresh();
+
+            $this->realtime->publishForAdminAndAgent('demande.updated', [
+                'resource' => 'demande',
+                'id' => $demande->id,
+                'agent_id' => $demande->agent_id,
+                'type_demande' => $demande->type_demande,
+                'statut' => $demande->statut,
+            ], (int) $demande->agent_id);
         }
 
         $demande->load(['agent.departement', 'approbateur', 'history', 'lecteurAdmin']);
@@ -160,6 +178,15 @@ class DemandeController extends Controller
             $request->input('commentaire'),
         );
 
+        $this->realtime->publishForAdminAndAgent('demande.updated', [
+            'resource' => 'demande',
+            'id' => $updated->id,
+            'agent_id' => $updated->agent_id,
+            'type_demande' => $updated->type_demande,
+            'statut' => $updated->statut,
+            'decision' => $request->string('decision')->toString(),
+        ], (int) $updated->agent_id);
+
         return response()->json([
             'message' => 'Décision enregistrée.',
             'demande' => new DemandeResource($updated),
@@ -171,6 +198,15 @@ class DemandeController extends Controller
         $this->authorize('cancel', $demande);
 
         $updated = $this->demandeService->cancel($demande, $request->user());
+
+        $this->realtime->publishForAdminAndAgent('demande.updated', [
+            'resource' => 'demande',
+            'id' => $updated->id,
+            'agent_id' => $updated->agent_id,
+            'type_demande' => $updated->type_demande,
+            'statut' => $updated->statut,
+            'decision' => 'ANNULEE',
+        ], (int) $updated->agent_id);
 
         return response()->json([
             'message' => 'Demande annulée.',

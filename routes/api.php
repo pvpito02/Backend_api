@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\PlanningShiftController;
 use App\Http\Controllers\Api\PointageAnomalieController;
 use App\Http\Controllers\Api\PointageController;
 use App\Http\Controllers\Api\QrCodeController;
+use App\Http\Controllers\Api\RealtimeController;
 use App\Http\Controllers\Api\RemoteConfigBundleController;
 use App\Http\Controllers\Api\RemoteConfigController;
 use App\Http\Controllers\Api\RetraiteController;
@@ -74,6 +75,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Dashboard / stats / exports
     Route::get('/dashboard/summary', [DashboardController::class, 'summary']);
     Route::get('/dashboard/alerts', [DashboardController::class, 'alerts']);
+    Route::get('/realtime/poll', [RealtimeController::class, 'poll']);
     Route::get('/stats/presence', [StatsController::class, 'presence']);
     Route::get('/stats/presence-by-service', [StatsController::class, 'presenceByService']);
     Route::get('/stats/retards', [StatsController::class, 'retards']);

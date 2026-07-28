@@ -35,6 +35,9 @@ class UserResource extends JsonResource
                 'email' => $this->agent->email,
                 'photo_url' => MediaUrl::public($this->agent->photo_url) ?? $this->agent->photo_url,
                 'date_entree' => $this->agent->date_entree?->format('Y-m-d'),
+                'solde_conges' => $this->agent->solde_conges !== null
+                    ? (float) $this->agent->solde_conges
+                    : null,
                 'statut' => $this->agent->statut,
             ] : null),
             'last_login_at' => $this->last_login_at?->toIso8601String(),

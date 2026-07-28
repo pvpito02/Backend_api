@@ -50,6 +50,8 @@ class RemoteConfigBundleController extends Controller
                 'orgName' => $map['org_name'] ?? 'Mairie de Sandiara',
                 'tagline' => $map['tagline'] ?? null,
                 'logoUrl' => MediaUrl::public($map['logo_url'] ?? null) ?? ($map['logo_url'] ?? null),
+                'mobileAppName' => $map['mobile_app_name'] ?? null,
+                'mobileLogoUrl' => MediaUrl::public($map['mobile_logo_url'] ?? null) ?? ($map['mobile_logo_url'] ?? null),
                 'supportPhone' => $map['support_phone'] ?? null,
                 'supportEmail' => $map['support_email'] ?? null,
                 'maintenanceMode' => $bool('maintenance_mode'),

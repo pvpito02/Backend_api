@@ -12,8 +12,8 @@ class RemoteConfigResource extends JsonResource
     public function toArray(Request $request): array
     {
         $value = $this->value_text;
-        // logo_url → URL publique si chemin storage
-        if ($this->key_name === 'logo_url') {
+        // Chemins storage → URL publique
+        if (in_array($this->key_name, ['logo_url', 'mobile_logo_url'], true)) {
             $value = MediaUrl::public($value) ?? $value;
         }
 

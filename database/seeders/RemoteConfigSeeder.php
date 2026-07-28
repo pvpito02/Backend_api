@@ -18,6 +18,8 @@ class RemoteConfigSeeder extends Seeder
             ['org_name', 'Mairie de Sandiara', 'Organisme'],
             ['tagline', 'Une commune green and clean', 'Slogan'],
             ['logo_url', '/logo_mairie.jpg', 'Logo application (admin / mobile)'],
+            ['mobile_app_name', 'Pointage QR', 'Nom de l’application mobile'],
+            ['mobile_logo_url', '', 'Logo de l’application mobile (vide = logo général)'],
             ['support_phone', '+221 33 XXX XX XX', 'Téléphone support'],
             ['support_email', 'rh@sandiara.sn', 'Email support'],
             ['maintenance_mode', '0', 'Mode maintenance mobile'],

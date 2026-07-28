@@ -77,6 +77,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/stats/retards', [StatsController::class, 'retards']);
     Route::get('/stats/demandes', [StatsController::class, 'demandes']);
     Route::get('/reports/summary', [StatsController::class, 'reports']);
+    Route::get('/reports/weekly-pointage', [StatsController::class, 'weeklyPointage']);
     Route::get('/exports/pointages', [ExportController::class, 'pointages']);
     Route::get('/exports/retards', [ExportController::class, 'retards']);
     Route::get('/exports/agents', [ExportController::class, 'agents']);

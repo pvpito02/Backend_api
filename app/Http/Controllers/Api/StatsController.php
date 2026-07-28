@@ -4,13 +4,17 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Services\DashboardStatsService;
+use App\Services\WeeklyPointageReportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class StatsController extends Controller
 {
-    public function __construct(private readonly DashboardStatsService $stats) {}
+    public function __construct(
+        private readonly DashboardStatsService $stats,
+        private readonly WeeklyPointageReportService $weeklyReport,
+    ) {}
 
     public function presence(Request $request): JsonResponse
     {
@@ -59,6 +63,27 @@ class StatsController extends Controller
 
         return response()->json([
             'data' => $this->stats->reportsSummary($period === 'all' ? 'daily' : $period),
+        ]);
+    }
+
+    /**
+     * Rapport hebdomadaire imprimable (lundi → samedi) — modèle mairie.
+     */
+    public function weeklyPointage(Request $request): JsonResponse
+    {
+        abort_unless($request->user()?->isAdminStaff(), 403, 'Accès non autorisé.');
+
+        $data = $request->validate([
+            'date' => ['sometimes', 'nullable', 'date'],
+        ]);
+
+        $user = $request->user();
+
+        return response()->json([
+            'data' => $this->weeklyReport->generate(
+                $data['date'] ?? null,
+                $user?->name,
+            ),
         ]);
     }
 }

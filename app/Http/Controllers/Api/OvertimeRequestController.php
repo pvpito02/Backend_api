@@ -10,6 +10,7 @@ use App\Http\Resources\OvertimeRequestResource;
 use App\Models\OvertimeRequest;
 use App\Services\AuditLogger;
 use App\Services\NotificationService;
+use App\Services\RealtimePublisher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -19,6 +20,7 @@ class OvertimeRequestController extends Controller
     public function __construct(
         private readonly NotificationService $notifications,
         private readonly AuditLogger $audit,
+        private readonly RealtimePublisher $realtime,
     ) {}
 
     public function index(Request $request): AnonymousResourceCollection
@@ -77,6 +79,14 @@ class OvertimeRequestController extends Controller
 
         $this->audit->log('overtime.create', $overtime);
 
+        $this->realtime->publishForAdminAndAgent('overtime.created', [
+            'resource' => 'overtime',
+            'id' => $overtime->id,
+            'agent_id' => $overtime->agent_id,
+            'statut' => $overtime->statut,
+            'heures_sup' => $overtime->heures_sup,
+        ], (int) $overtime->agent_id);
+
         return response()->json([
             'message' => 'Demande d’heures supplémentaires créée.',
             'overtime' => new OvertimeRequestResource($overtime),
@@ -100,9 +110,19 @@ class OvertimeRequestController extends Controller
 
         $this->audit->log('overtime.update', $overtimeRequest);
 
+        $fresh = $overtimeRequest->fresh()->load(['agent', 'approbateur']);
+
+        $this->realtime->publishForAdminAndAgent('overtime.updated', [
+            'resource' => 'overtime',
+            'id' => $fresh->id,
+            'agent_id' => $fresh->agent_id,
+            'statut' => $fresh->statut,
+            'heures_sup' => $fresh->heures_sup,
+        ], (int) $fresh->agent_id);
+
         return response()->json([
             'message' => 'Demande HS mise à jour.',
-            'overtime' => new OvertimeRequestResource($overtimeRequest->fresh()->load(['agent', 'approbateur'])),
+            'overtime' => new OvertimeRequestResource($fresh),
         ]);
     }
 
@@ -138,9 +158,20 @@ class OvertimeRequestController extends Controller
 
         $this->audit->log('overtime.decide', $overtimeRequest, ['decision' => $decision]);
 
+        $fresh = $overtimeRequest->fresh()->load(['agent', 'approbateur']);
+
+        $this->realtime->publishForAdminAndAgent('overtime.updated', [
+            'resource' => 'overtime',
+            'id' => $fresh->id,
+            'agent_id' => $fresh->agent_id,
+            'statut' => $fresh->statut,
+            'heures_sup' => $fresh->heures_sup,
+            'decision' => $decision,
+        ], (int) $fresh->agent_id);
+
         return response()->json([
             'message' => 'Décision enregistrée.',
-            'overtime' => new OvertimeRequestResource($overtimeRequest->fresh()->load(['agent', 'approbateur'])),
+            'overtime' => new OvertimeRequestResource($fresh),
         ]);
     }
 
@@ -148,8 +179,18 @@ class OvertimeRequestController extends Controller
     {
         $this->authorize('delete', $overtimeRequest);
 
+        $payload = [
+            'resource' => 'overtime',
+            'id' => $overtimeRequest->id,
+            'agent_id' => $overtimeRequest->agent_id,
+            'statut' => $overtimeRequest->statut,
+        ];
+        $agentId = (int) $overtimeRequest->agent_id;
+
         $this->audit->log('overtime.delete', $overtimeRequest);
         $overtimeRequest->delete();
+
+        $this->realtime->publishForAdminAndAgent('overtime.deleted', $payload, $agentId);
 
         return response()->json(['message' => 'Demande HS supprimée.']);
     }

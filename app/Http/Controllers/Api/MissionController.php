@@ -8,13 +8,17 @@ use App\Http\Requests\Missions\UpdateMissionRequest;
 use App\Http\Resources\MissionResource;
 use App\Models\Mission;
 use App\Services\NotificationService;
+use App\Services\RealtimePublisher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class MissionController extends Controller
 {
-    public function __construct(private readonly NotificationService $notifications) {}
+    public function __construct(
+        private readonly NotificationService $notifications,
+        private readonly RealtimePublisher $realtime,
+    ) {}
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -72,6 +76,8 @@ class MissionController extends Controller
             );
         }
 
+        $this->publishMissionEvent('mission.created', $mission);
+
         return response()->json([
             'message' => 'Mission créée.',
             'mission' => new MissionResource($mission),
@@ -107,6 +113,8 @@ class MissionController extends Controller
             );
         }
 
+        $this->publishMissionEvent('mission.updated', $mission);
+
         return response()->json([
             'message' => 'Mission mise à jour.',
             'mission' => new MissionResource($mission),
@@ -117,8 +125,29 @@ class MissionController extends Controller
     {
         $this->authorize('delete', $mission);
 
+        $payload = [
+            'resource' => 'mission',
+            'id' => $mission->id,
+            'agent_id' => $mission->agent_id,
+            'statut' => $mission->statut,
+            'action' => 'delete',
+        ];
+        $agentId = (int) $mission->agent_id;
+
         $mission->delete();
 
+        $this->realtime->publishForAdminAndAgent('mission.deleted', $payload, $agentId);
+
         return response()->json(['message' => 'Mission supprimée.']);
+    }
+
+    private function publishMissionEvent(string $type, Mission $mission): void
+    {
+        $this->realtime->publishForAdminAndAgent($type, [
+            'resource' => 'mission',
+            'id' => $mission->id,
+            'agent_id' => $mission->agent_id,
+            'statut' => $mission->statut,
+        ], (int) $mission->agent_id);
     }
 }

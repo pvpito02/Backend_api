@@ -8,13 +8,17 @@ use App\Http\Requests\Sanctions\UpdateSanctionRequest;
 use App\Http\Resources\SanctionResource;
 use App\Models\Sanction;
 use App\Services\NotificationService;
+use App\Services\RealtimePublisher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class SanctionController extends Controller
 {
-    public function __construct(private readonly NotificationService $notifications) {}
+    public function __construct(
+        private readonly NotificationService $notifications,
+        private readonly RealtimePublisher $realtime,
+    ) {}
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -63,6 +67,8 @@ class SanctionController extends Controller
             );
         }
 
+        $this->publishSanctionEvent('sanction.created', $sanction);
+
         return response()->json([
             'message' => 'Sanction créée.',
             'sanction' => new SanctionResource($sanction),
@@ -83,10 +89,13 @@ class SanctionController extends Controller
         $this->authorize('update', $sanction);
 
         $sanction->fill($request->validated())->save();
+        $fresh = $sanction->fresh()->load(['agent', 'creator']);
+
+        $this->publishSanctionEvent('sanction.updated', $fresh);
 
         return response()->json([
             'message' => 'Sanction mise à jour.',
-            'sanction' => new SanctionResource($sanction->fresh()->load(['agent', 'creator'])),
+            'sanction' => new SanctionResource($fresh),
         ]);
     }
 
@@ -94,8 +103,31 @@ class SanctionController extends Controller
     {
         $this->authorize('delete', $sanction);
 
+        $payload = [
+            'resource' => 'sanction',
+            'id' => $sanction->id,
+            'agent_id' => $sanction->agent_id,
+            'statut' => $sanction->statut,
+            'type_sanction' => $sanction->type_sanction,
+            'action' => 'delete',
+        ];
+        $agentId = (int) $sanction->agent_id;
+
         $sanction->delete();
 
+        $this->realtime->publishForAdminAndAgent('sanction.deleted', $payload, $agentId);
+
         return response()->json(['message' => 'Sanction supprimée.']);
+    }
+
+    private function publishSanctionEvent(string $type, Sanction $sanction): void
+    {
+        $this->realtime->publishForAdminAndAgent($type, [
+            'resource' => 'sanction',
+            'id' => $sanction->id,
+            'agent_id' => $sanction->agent_id,
+            'statut' => $sanction->statut,
+            'type_sanction' => $sanction->type_sanction,
+        ], (int) $sanction->agent_id);
     }
 }

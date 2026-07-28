@@ -34,7 +34,7 @@ class AuthController extends Controller
             RateLimiter::hit($throttleKey, $this->lockSeconds());
 
             throw ValidationException::withMessages([
-                'login' => ['Identifiants incorrects.'],
+                'login' => ['Identifiant et/ou mot de passe incorrect.'],
             ]);
         }
 

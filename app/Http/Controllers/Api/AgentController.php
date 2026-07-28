@@ -41,6 +41,10 @@ class AgentController extends Controller
             $query->where('is_active', filter_var($request->input('is_active'), FILTER_VALIDATE_BOOLEAN));
         }
 
+        if ($request->boolean('without_user')) {
+            $query->whereNull('user_id');
+        }
+
         if ($request->filled('q')) {
             $q = '%'.$request->string('q').'%';
             $query->where(function ($builder) use ($q) {
@@ -54,7 +58,7 @@ class AgentController extends Controller
         }
 
         return AgentResource::collection(
-            $query->paginate(min(100, max(1, (int) $request->input('per_page', 15))))
+            $query->paginate(min(500, max(1, (int) $request->input('per_page', 15))))
         );
     }
 

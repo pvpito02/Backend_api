@@ -23,16 +23,22 @@ class StoreUserRequest extends FormRequest
             'role_id' => ['required', 'integer', 'exists:roles,id'],
             'avatar_url' => ['nullable', 'string', 'max:255'],
             'is_active' => ['sometimes', 'boolean'],
-            // Liaison agent optionnelle (rôle agent)
+            // Lier un agent RH déjà créé (sans compte) — pas de doublon
+            'agent_id' => [
+                'nullable',
+                'integer',
+                'exists:agents,id',
+                Rule::requiredIf(fn () => $this->isAgentRole()),
+            ],
             'matricule' => [
                 'nullable',
                 'string',
                 'max:30',
-                'unique:agents,matricule',
-                Rule::requiredIf(fn () => $this->isAgentRole()),
+                Rule::unique('agents', 'matricule')->ignore($this->integer('agent_id')),
+                Rule::requiredIf(fn () => $this->isAgentRole() && ! $this->filled('agent_id')),
             ],
-            'prenom' => ['nullable', 'string', 'max:100', Rule::requiredIf(fn () => $this->isAgentRole())],
-            'nom' => ['nullable', 'string', 'max:100', Rule::requiredIf(fn () => $this->isAgentRole())],
+            'prenom' => ['nullable', 'string', 'max:100'],
+            'nom' => ['nullable', 'string', 'max:100'],
             'poste' => ['nullable', 'string', 'max:150'],
             'departement_id' => ['nullable', 'integer', 'exists:departements,id'],
         ];
@@ -43,6 +49,8 @@ class StoreUserRequest extends FormRequest
         return [
             'email.unique' => 'Cet email est déjà utilisé.',
             'role_id.exists' => 'Le rôle sélectionné est invalide.',
+            'agent_id.required' => 'Sélectionnez un agent existant sans compte.',
+            'agent_id.exists' => 'Agent introuvable.',
             'matricule.required' => 'Le matricule est obligatoire pour un compte agent.',
             'matricule.unique' => 'Ce matricule existe déjà.',
             'password.confirmed' => 'La confirmation du mot de passe ne correspond pas.',

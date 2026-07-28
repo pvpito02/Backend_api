@@ -15,6 +15,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
 {
@@ -70,19 +71,51 @@ class UserController extends Controller
             $roleName = Role::query()->whereKey($user->role_id)->value('name');
 
             if ($roleName === 'agent') {
-                Agent::query()->create([
-                    'user_id' => $user->id,
-                    'matricule' => $request->string('matricule')->toString(),
-                    'prenom' => $request->string('prenom')->toString(),
-                    'nom' => $request->string('nom')->toString(),
-                    'poste' => $request->input('poste'),
-                    'departement_id' => $request->input('departement_id'),
+                $agentId = $request->integer('agent_id');
+                $agent = Agent::query()->whereKey($agentId)->lockForUpdate()->first();
+
+                if (! $agent) {
+                    throw ValidationException::withMessages([
+                        'agent_id' => ['Agent introuvable.'],
+                    ]);
+                }
+
+                if ($agent->user_id) {
+                    throw ValidationException::withMessages([
+                        'agent_id' => ['Cet agent a déjà un compte utilisateur.'],
+                    ]);
+                }
+
+                $names = preg_split('/\s+/', trim((string) $request->input('name', '')), 2) ?: [];
+                $prenom = $request->filled('prenom')
+                    ? $request->string('prenom')->toString()
+                    : ($names[0] ?? $agent->prenom);
+                $nom = $request->filled('nom')
+                    ? $request->string('nom')->toString()
+                    : ($names[1] ?? $agent->nom);
+
+                $agent->fill([
+                    'prenom' => $prenom ?: $agent->prenom,
+                    'nom' => $nom ?: $agent->nom,
+                    'poste' => $request->exists('poste') ? $request->input('poste') : $agent->poste,
+                    'departement_id' => $request->filled('departement_id')
+                        ? $request->integer('departement_id')
+                        : $agent->departement_id,
                     'email' => $user->email,
-                    'telephone' => $user->phone,
-                    'photo_url' => $request->input('avatar_url'),
-                    'statut' => 'Actif',
+                    'telephone' => $user->phone ?: $agent->telephone,
+                    'photo_url' => $request->filled('avatar_url')
+                        ? $request->input('avatar_url')
+                        : $agent->photo_url,
+                    'statut' => $agent->statut ?: 'Actif',
                     'is_active' => true,
                 ]);
+
+                if ($request->filled('matricule')) {
+                    $agent->matricule = $request->string('matricule')->toString();
+                }
+
+                $agent->user_id = $user->id;
+                $agent->save();
             }
 
             return $user->load(['role', 'agent.departement']);
@@ -90,7 +123,7 @@ class UserController extends Controller
 
         $this->publishUserEvent('user.created', $user);
         if ($user->agent) {
-            $this->publishAgentEvent('agent.created', $user->agent);
+            $this->publishAgentEvent('agent.updated', $user->agent);
         }
 
         return response()->json([

@@ -61,7 +61,7 @@ class AgentDocumentController extends Controller
         $agents = Agent::query()
             ->with(['departement', 'documents'])
             ->orderBy('nom')
-            ->paginate(min(100, max(1, (int) $request->input('per_page', 15))));
+            ->paginate(min(500, max(1, (int) $request->input('per_page', 15))));
 
         $data = $agents->getCollection()->map(function (Agent $agent) use ($types) {
             $docs = [];

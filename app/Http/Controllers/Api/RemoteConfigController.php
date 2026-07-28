@@ -7,6 +7,7 @@ use App\Http\Requests\RemoteConfigs\BulkUpdateRemoteConfigRequest;
 use App\Http\Requests\RemoteConfigs\UpsertRemoteConfigRequest;
 use App\Http\Resources\RemoteConfigResource;
 use App\Models\RemoteConfig;
+use App\Services\RealtimePublisher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -14,6 +15,8 @@ use Illuminate\Support\Facades\DB;
 
 class RemoteConfigController extends Controller
 {
+    public function __construct(private readonly RealtimePublisher $realtime) {}
+
     public function index(Request $request): AnonymousResourceCollection|JsonResponse
     {
         $this->authorize('viewAny', RemoteConfig::class);
@@ -49,6 +52,12 @@ class RemoteConfigController extends Controller
             ]
         );
 
+        $this->realtime->publishForAll('config.updated', [
+            'resource' => 'remote_config',
+            'id' => $config->id,
+            'action' => 'upsert',
+        ]);
+
         return response()->json([
             'message' => 'Configuration enregistrée.',
             'config' => new RemoteConfigResource($config),
@@ -69,6 +78,12 @@ class RemoteConfigController extends Controller
         $this->authorize('update', $remoteConfig);
 
         $remoteConfig->fill($request->validated())->save();
+
+        $this->realtime->publishForAll('config.updated', [
+            'resource' => 'remote_config',
+            'id' => $remoteConfig->id,
+            'action' => 'update',
+        ]);
 
         return response()->json([
             'message' => 'Configuration mise à jour.',
@@ -92,6 +107,11 @@ class RemoteConfigController extends Controller
             }
         });
 
+        $this->realtime->publishForAll('config.updated', [
+            'resource' => 'remote_config',
+            'action' => 'bulk',
+        ]);
+
         return response()->json([
             'message' => 'Configurations mises à jour.',
             'configs' => RemoteConfigResource::collection(
@@ -104,7 +124,14 @@ class RemoteConfigController extends Controller
     {
         $this->authorize('delete', $remoteConfig);
 
+        $id = $remoteConfig->id;
         $remoteConfig->delete();
+
+        $this->realtime->publishForAll('config.updated', [
+            'resource' => 'remote_config',
+            'id' => $id,
+            'action' => 'delete',
+        ]);
 
         return response()->json(['message' => 'Clé de configuration supprimée.']);
     }

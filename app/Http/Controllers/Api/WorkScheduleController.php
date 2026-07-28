@@ -6,12 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\WorkSchedules\UpdateWorkScheduleRequest;
 use App\Http\Resources\WorkScheduleResource;
 use App\Models\WorkSchedule;
+use App\Services\RealtimePublisher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class WorkScheduleController extends Controller
 {
+    public function __construct(private readonly RealtimePublisher $realtime) {}
+
     public function index(Request $request): AnonymousResourceCollection|JsonResponse
     {
         $this->authorize('viewAny', WorkSchedule::class);
@@ -50,6 +53,12 @@ class WorkScheduleController extends Controller
         }
 
         $workSchedule->fill($data)->save();
+
+        $this->realtime->publishForAll('config.updated', [
+            'resource' => 'work_schedule',
+            'id' => $workSchedule->id,
+            'action' => 'update',
+        ]);
 
         return response()->json([
             'message' => 'Horaires mis à jour.',

@@ -8,6 +8,7 @@ use App\Http\Requests\Announcements\UpdateAnnouncementRequest;
 use App\Http\Resources\AnnouncementResource;
 use App\Models\Announcement;
 use App\Services\MediaService;
+use App\Services\RealtimePublisher;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,7 +16,10 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class AnnouncementController extends Controller
 {
-    public function __construct(private readonly MediaService $media) {}
+    public function __construct(
+        private readonly MediaService $media,
+        private readonly RealtimePublisher $realtime,
+    ) {}
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -63,6 +67,12 @@ class AnnouncementController extends Controller
 
         $announcement = Announcement::query()->create($data);
 
+        $this->realtime->publishForAll('announcement.created', [
+            'resource' => 'announcement',
+            'id' => $announcement->id,
+            'action' => 'create',
+        ]);
+
         return response()->json([
             'message' => 'Annonce publiée.',
             'announcement' => new AnnouncementResource($announcement),
@@ -94,6 +104,12 @@ class AnnouncementController extends Controller
 
         $announcement->fill($data)->save();
 
+        $this->realtime->publishForAll('announcement.updated', [
+            'resource' => 'announcement',
+            'id' => $announcement->id,
+            'action' => 'update',
+        ]);
+
         return response()->json([
             'message' => 'Annonce mise à jour.',
             'announcement' => new AnnouncementResource($announcement->fresh()),
@@ -104,11 +120,19 @@ class AnnouncementController extends Controller
     {
         $this->authorize('delete', $announcement);
 
+        $id = $announcement->id;
+
         if ($announcement->image_url) {
             $this->media->delete($announcement->image_url);
         }
 
         $announcement->delete();
+
+        $this->realtime->publishForAll('announcement.deleted', [
+            'resource' => 'announcement',
+            'id' => $id,
+            'action' => 'delete',
+        ]);
 
         return response()->json(['message' => 'Annonce supprimée.']);
     }

@@ -6,12 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\MobileFeatures\UpdateMobileFeatureRequest;
 use App\Http\Resources\MobileFeatureResource;
 use App\Models\MobileFeature;
+use App\Services\RealtimePublisher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class MobileFeatureController extends Controller
 {
+    public function __construct(private readonly RealtimePublisher $realtime) {}
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorize('viewAny', MobileFeature::class);
@@ -40,6 +43,12 @@ class MobileFeatureController extends Controller
 
         $data = $request->safe()->except(['visible']);
         $mobileFeature->fill($data)->save();
+
+        $this->realtime->publishForAll('config.updated', [
+            'resource' => 'mobile_feature',
+            'id' => $mobileFeature->id,
+            'action' => 'update',
+        ]);
 
         return response()->json([
             'message' => 'Module mobile mis à jour.',

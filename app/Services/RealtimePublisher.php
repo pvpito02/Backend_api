@@ -36,6 +36,12 @@ class RealtimePublisher
         ]);
     }
 
+    /** Notifie tous les clients authentifiés (config / branding — sans données perso). */
+    public function publishForAll(string $type, array $payload): RealtimeEvent
+    {
+        return $this->publish($type, $payload, 'all', null);
+    }
+
     /** Notifie le staff admin + éventuellement l’agent concerné. */
     public function publishForAdminAndAgent(string $type, array $payload, ?int $agentId): void
     {
@@ -67,8 +73,13 @@ class RealtimePublisher
             ->limit($limit);
 
         $query->where(function ($q) use ($user) {
+            // Événements destinés à tout utilisateur authentifié (config, etc.)
+            $q->where(function ($q2) {
+                $q2->where('audience', 'all')->whereNull('audience_id');
+            });
+
             if ($user->isAdminStaff()) {
-                $q->where(function ($q2) {
+                $q->orWhere(function ($q2) {
                     $q2->where('audience', 'admin')->whereNull('audience_id');
                 });
             }

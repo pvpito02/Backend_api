@@ -7,12 +7,15 @@ use App\Http\Requests\Departements\StoreDepartementRequest;
 use App\Http\Requests\Departements\UpdateDepartementRequest;
 use App\Http\Resources\DepartementResource;
 use App\Models\Departement;
+use App\Services\RealtimePublisher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class DepartementController extends Controller
 {
+    public function __construct(private readonly RealtimePublisher $realtime) {}
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorize('viewAny', Departement::class);
@@ -58,6 +61,12 @@ class DepartementController extends Controller
         $departement = Departement::query()->create($data);
         $departement->load('responsable')->loadCount('agents');
 
+        $this->realtime->publish('departement.created', [
+            'resource' => 'departement',
+            'id' => $departement->id,
+            'action' => 'create',
+        ], 'admin', null);
+
         return response()->json([
             'message' => 'Département créé.',
             'departement' => new DepartementResource($departement),
@@ -82,6 +91,12 @@ class DepartementController extends Controller
         $departement->fill($request->validated())->save();
         $departement->load('responsable')->loadCount('agents');
 
+        $this->realtime->publish('departement.updated', [
+            'resource' => 'departement',
+            'id' => $departement->id,
+            'action' => 'update',
+        ], 'admin', null);
+
         return response()->json([
             'message' => 'Département mis à jour.',
             'departement' => new DepartementResource($departement),
@@ -98,7 +113,14 @@ class DepartementController extends Controller
             ], 422);
         }
 
+        $id = $departement->id;
         $departement->delete();
+
+        $this->realtime->publish('departement.deleted', [
+            'resource' => 'departement',
+            'id' => $id,
+            'action' => 'delete',
+        ], 'admin', null);
 
         return response()->json([
             'message' => 'Département supprimé.',

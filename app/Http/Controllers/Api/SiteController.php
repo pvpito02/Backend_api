@@ -7,6 +7,7 @@ use App\Http\Requests\Sites\StoreSiteRequest;
 use App\Http\Requests\Sites\UpdateSiteRequest;
 use App\Http\Resources\SiteResource;
 use App\Models\Site;
+use App\Services\RealtimePublisher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -14,6 +15,8 @@ use Illuminate\Support\Facades\DB;
 
 class SiteController extends Controller
 {
+    public function __construct(private readonly RealtimePublisher $realtime) {}
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorize('viewAny', Site::class);
@@ -51,6 +54,12 @@ class SiteController extends Controller
             return $site->load('departements');
         });
 
+        $this->realtime->publishForAll('site.created', [
+            'resource' => 'site',
+            'id' => $site->id,
+            'action' => 'create',
+        ]);
+
         return response()->json([
             'message' => 'Site créé.',
             'site' => new SiteResource($site),
@@ -78,9 +87,16 @@ class SiteController extends Controller
             }
         });
 
+        $fresh = $site->fresh()->load('departements');
+        $this->realtime->publishForAll('site.updated', [
+            'resource' => 'site',
+            'id' => $fresh->id,
+            'action' => 'update',
+        ]);
+
         return response()->json([
             'message' => 'Site mis à jour.',
-            'site' => new SiteResource($site->fresh()->load('departements')),
+            'site' => new SiteResource($fresh),
         ]);
     }
 
@@ -94,8 +110,15 @@ class SiteController extends Controller
             ], 422);
         }
 
+        $id = $site->id;
         $site->departements()->detach();
         $site->delete();
+
+        $this->realtime->publishForAll('site.deleted', [
+            'resource' => 'site',
+            'id' => $id,
+            'action' => 'delete',
+        ]);
 
         return response()->json(['message' => 'Site supprimé.']);
     }

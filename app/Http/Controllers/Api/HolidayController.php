@@ -7,12 +7,15 @@ use App\Http\Requests\Holidays\StoreHolidayRequest;
 use App\Http\Requests\Holidays\UpdateHolidayRequest;
 use App\Http\Resources\HolidayResource;
 use App\Models\Holiday;
+use App\Services\RealtimePublisher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class HolidayController extends Controller
 {
+    public function __construct(private readonly RealtimePublisher $realtime) {}
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorize('viewAny', Holiday::class);
@@ -59,6 +62,12 @@ class HolidayController extends Controller
 
         $holiday = Holiday::query()->create($data);
 
+        $this->realtime->publishForAll('holiday.created', [
+            'resource' => 'holiday',
+            'id' => $holiday->id,
+            'action' => 'create',
+        ]);
+
         return response()->json([
             'message' => 'Jour non travaillé créé.',
             'holiday' => new HolidayResource($holiday),
@@ -78,6 +87,12 @@ class HolidayController extends Controller
 
         $holiday->fill($request->validated())->save();
 
+        $this->realtime->publishForAll('holiday.updated', [
+            'resource' => 'holiday',
+            'id' => $holiday->id,
+            'action' => 'update',
+        ]);
+
         return response()->json([
             'message' => 'Jour non travaillé mis à jour.',
             'holiday' => new HolidayResource($holiday),
@@ -88,7 +103,14 @@ class HolidayController extends Controller
     {
         $this->authorize('delete', $holiday);
 
+        $id = $holiday->id;
         $holiday->delete();
+
+        $this->realtime->publishForAll('holiday.deleted', [
+            'resource' => 'holiday',
+            'id' => $id,
+            'action' => 'delete',
+        ]);
 
         return response()->json(['message' => 'Jour non travaillé supprimé.']);
     }

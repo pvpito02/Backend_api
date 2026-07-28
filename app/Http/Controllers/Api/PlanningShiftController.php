@@ -8,12 +8,15 @@ use App\Http\Requests\PlanningShifts\UpdatePlanningShiftRequest;
 use App\Http\Resources\PlanningShiftResource;
 use App\Models\Departement;
 use App\Models\PlanningShift;
+use App\Services\RealtimePublisher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class PlanningShiftController extends Controller
 {
+    public function __construct(private readonly RealtimePublisher $realtime) {}
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorize('viewAny', PlanningShift::class);
@@ -59,6 +62,13 @@ class PlanningShiftController extends Controller
 
         $shift = PlanningShift::query()->create($data)->load('departement');
 
+        $this->realtime->publish('planning.created', [
+            'resource' => 'planning',
+            'id' => $shift->id,
+            'departement_id' => $shift->departement_id,
+            'action' => 'create',
+        ], 'admin', null);
+
         return response()->json([
             'message' => 'Quart de planning créé.',
             'planning_shift' => new PlanningShiftResource($shift),
@@ -100,10 +110,18 @@ class PlanningShiftController extends Controller
         }
 
         $planningShift->fill($data)->save();
+        $fresh = $planningShift->fresh()->load('departement');
+
+        $this->realtime->publish('planning.updated', [
+            'resource' => 'planning',
+            'id' => $fresh->id,
+            'departement_id' => $fresh->departement_id,
+            'action' => 'update',
+        ], 'admin', null);
 
         return response()->json([
             'message' => 'Quart de planning mis à jour.',
-            'planning_shift' => new PlanningShiftResource($planningShift->fresh()->load('departement')),
+            'planning_shift' => new PlanningShiftResource($fresh),
         ]);
     }
 
@@ -111,7 +129,16 @@ class PlanningShiftController extends Controller
     {
         $this->authorize('delete', $planningShift);
 
+        $id = $planningShift->id;
+        $departementId = $planningShift->departement_id;
         $planningShift->delete();
+
+        $this->realtime->publish('planning.deleted', [
+            'resource' => 'planning',
+            'id' => $id,
+            'departement_id' => $departementId,
+            'action' => 'delete',
+        ], 'admin', null);
 
         return response()->json(['message' => 'Quart de planning supprimé.']);
     }

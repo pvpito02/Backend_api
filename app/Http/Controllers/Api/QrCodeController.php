@@ -37,7 +37,7 @@ class QrCodeController extends Controller
             $query->where('statut', $request->string('statut'));
         }
 
-        $items = $query->paginate(min(100, max(1, (int) $request->input('per_page', 20))));
+        $items = $query->paginate(min(500, max(1, (int) $request->input('per_page', 20))));
         $items->getCollection()->each->refreshExpiredStatus();
 
         return QrCodeResource::collection($items);

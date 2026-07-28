@@ -46,6 +46,9 @@ Route::get('/health', function () {
     ]);
 });
 
+// Branding login / splash (logo, nom, slogan) — lecture seule, sans auth
+Route::get('/public/branding', \App\Http\Controllers\Api\PublicBrandingController::class);
+
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
 

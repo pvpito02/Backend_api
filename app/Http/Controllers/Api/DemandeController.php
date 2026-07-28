@@ -218,11 +218,23 @@ class DemandeController extends Controller
     {
         $this->authorize('delete', $demande);
 
+        $payload = [
+            'resource' => 'demande',
+            'id' => $demande->id,
+            'agent_id' => $demande->agent_id,
+            'type_demande' => $demande->type_demande,
+            'statut' => $demande->statut,
+            'action' => 'delete',
+        ];
+        $agentId = (int) $demande->agent_id;
+
         if ($demande->document_path) {
             $this->mediaService->delete($demande->document_path);
         }
 
         $demande->delete();
+
+        $this->realtime->publishForAdminAndAgent('demande.deleted', $payload, $agentId);
 
         return response()->json(['message' => 'Demande supprimée.']);
     }

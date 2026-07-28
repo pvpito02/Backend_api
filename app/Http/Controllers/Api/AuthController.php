@@ -66,7 +66,7 @@ class AuthController extends Controller
         $deviceName = $request->string('device_name')->toString() ?: ($request->userAgent() ?: 'api-token');
         $token = $user->createToken($deviceName)->plainTextToken;
 
-        $user->load(['role', 'agent']);
+        $user->load(['role', 'agent.departement']);
 
         return response()->json([
             'message' => 'Connexion réussie.',
@@ -78,7 +78,7 @@ class AuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
-        $user = $request->user()->load(['role', 'agent']);
+        $user = $request->user()->load(['role', 'agent.departement']);
 
         return response()->json([
             'user' => new UserResource($user),

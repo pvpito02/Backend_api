@@ -72,4 +72,66 @@ class User extends Authenticatable
     {
         return $this->hasRole(['super_admin', 'admin', 'sous_admin', 'rh', 'direction']);
     }
+
+    /** Fenêtre d’activité (minutes) pour considérer une session « en ligne ». */
+    public static function onlineThresholdMinutes(): int
+    {
+        return 5;
+    }
+
+    public static function onlineThreshold(): \Carbon\Carbon
+    {
+        return now()->subMinutes(static::onlineThresholdMinutes());
+    }
+
+    /**
+     * Scope / contrainte SQL : tokens encore considérés actifs.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<\Laravel\Sanctum\PersonalAccessToken>|\Illuminate\Database\Eloquent\Relations\MorphMany  $query
+     */
+    public static function constrainActiveTokens($query): void
+    {
+        $threshold = static::onlineThreshold();
+
+        $query->where(function ($q) use ($threshold) {
+            $q->where('last_used_at', '>=', $threshold)
+                ->orWhere(function ($q2) use ($threshold) {
+                    $q2->whereNull('last_used_at')
+                        ->where('created_at', '>=', $threshold);
+                });
+        });
+    }
+
+    public function activeSessionsCount(): int
+    {
+        if (isset($this->active_sessions_count)) {
+            return (int) $this->active_sessions_count;
+        }
+
+        $query = $this->tokens();
+        static::constrainActiveTokens($query);
+
+        return (int) $query->count();
+    }
+
+    public function isOnline(): bool
+    {
+        return $this->activeSessionsCount() > 0;
+    }
+
+    public function lastSeenAt(): ?\Carbon\Carbon
+    {
+        if (! empty($this->tokens_max_last_used_at)) {
+            return \Carbon\Carbon::parse($this->tokens_max_last_used_at);
+        }
+
+        $lastUsed = $this->tokens()->max('last_used_at');
+        if ($lastUsed) {
+            return \Carbon\Carbon::parse($lastUsed);
+        }
+
+        $lastCreated = $this->tokens()->max('created_at');
+
+        return $lastCreated ? \Carbon\Carbon::parse($lastCreated) : $this->last_login_at;
+    }
 }

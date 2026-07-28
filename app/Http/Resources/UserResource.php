@@ -43,6 +43,10 @@ class UserResource extends JsonResource
             ] : null),
             'last_login_at' => $this->last_login_at?->toIso8601String(),
             'last_logout_at' => $this->last_logout_at?->toIso8601String(),
+            // Présence réelle : au moins un token Sanctum actif récemment (multi-postes OK)
+            'is_online' => $this->isOnline(),
+            'sessions_count' => $this->activeSessionsCount(),
+            'last_seen_at' => $this->lastSeenAt()?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

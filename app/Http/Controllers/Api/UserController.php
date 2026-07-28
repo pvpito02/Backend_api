@@ -23,6 +23,12 @@ class UserController extends Controller
 
         $query = User::query()->with(['role', 'agent.departement'])->latest('id');
 
+        $query->withCount([
+            'tokens as active_sessions_count' => function ($q) {
+                User::constrainActiveTokens($q);
+            },
+        ])->withMax('tokens as tokens_max_last_used_at', 'last_used_at');
+
         if ($request->filled('role')) {
             $query->whereHas('role', fn ($q) => $q->where('name', $request->string('role')));
         }

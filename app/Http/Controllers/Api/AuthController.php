@@ -64,9 +64,17 @@ class AuthController extends Controller
         ], $user);
 
         $deviceName = $request->string('device_name')->toString() ?: ($request->userAgent() ?: 'api-token');
-        $token = $user->createToken($deviceName)->plainTextToken;
+        $newToken = $user->createToken($deviceName);
+        // Marquer immédiatement le token comme actif (sinon online attend la 1re requête)
+        $newToken->accessToken->forceFill(['last_used_at' => now()])->save();
+        $token = $newToken->plainTextToken;
 
         $user->load(['role', 'agent.departement']);
+        $user->loadCount([
+            'tokens as active_sessions_count' => function ($q) {
+                User::constrainActiveTokens($q);
+            },
+        ]);
 
         return response()->json([
             'message' => 'Connexion réussie.',
@@ -79,9 +87,44 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         $user = $request->user()->load(['role', 'agent.departement']);
+        $user->loadCount([
+            'tokens as active_sessions_count' => function ($q) {
+                User::constrainActiveTokens($q);
+            },
+        ]);
+
+        // Touche la session courante (activité)
+        $request->user()->currentAccessToken()?->forceFill([
+            'last_used_at' => now(),
+        ])->save();
 
         return response()->json([
             'user' => new UserResource($user),
+        ]);
+    }
+
+    /**
+     * Heartbeat multi-postes : prolonge la session courante sans autre effet.
+     */
+    public function heartbeat(Request $request): JsonResponse
+    {
+        $token = $request->user()->currentAccessToken();
+        if ($token) {
+            $token->forceFill(['last_used_at' => now()])->save();
+        }
+
+        $user = $request->user();
+        $user->loadCount([
+            'tokens as active_sessions_count' => function ($q) {
+                User::constrainActiveTokens($q);
+            },
+        ]);
+
+        return response()->json([
+            'ok' => true,
+            'is_online' => $user->isOnline(),
+            'sessions_count' => $user->activeSessionsCount(),
+            'server_time' => now()->toIso8601String(),
         ]);
     }
 
@@ -89,13 +132,18 @@ class AuthController extends Controller
     {
         $user = $request->user();
 
-        $user->forceFill([
-            'last_logout_at' => now(),
-        ])->save();
+        $request->user()->currentAccessToken()?->delete();
+
+        // last_logout_at seulement s’il ne reste plus de session active
+        $remaining = $user->tokens();
+        User::constrainActiveTokens($remaining);
+        if ($remaining->count() === 0) {
+            $user->forceFill([
+                'last_logout_at' => now(),
+            ])->save();
+        }
 
         $this->audit->log('auth.logout', $user, null, $user);
-
-        $request->user()->currentAccessToken()?->delete();
 
         return response()->json([
             'message' => 'Déconnexion réussie.',

@@ -32,6 +32,7 @@ class UpdateAgentRequest extends FormRequest
             'nom' => ['sometimes', 'required', 'string', 'max:100'],
             'sexe' => ['nullable', Rule::in(['M', 'F'])],
             'date_naissance' => ['nullable', 'date', 'before:today'],
+            'lieu_naissance' => ['nullable', 'string', 'max:150'],
             'date_entree' => ['nullable', 'date', 'before_or_equal:today'],
             'date_fin_contrat' => ['nullable', 'date', 'after_or_equal:date_entree'],
             'poste' => ['nullable', 'string', 'max:150'],

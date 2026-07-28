@@ -15,6 +15,7 @@ class Agent extends Model
         'nom',
         'sexe',
         'date_naissance',
+        'lieu_naissance',
         'date_entree',
         'date_fin_contrat',
         'poste',
@@ -69,6 +70,16 @@ class Agent extends Model
     public function getNomCompletAttribute(): string
     {
         return trim("{$this->prenom} {$this->nom}");
+    }
+
+    /** Âge en années civiles (null si date de naissance absente). */
+    public function getAgeAttribute(): ?int
+    {
+        if (! $this->date_naissance) {
+            return null;
+        }
+
+        return (int) $this->date_naissance->age;
     }
 
     public function getServiceAttribute(): ?string

@@ -20,6 +20,8 @@ class AgentResource extends JsonResource
             'nom_complet' => $this->nom_complet,
             'sexe' => $this->sexe,
             'date_naissance' => $this->date_naissance?->format('Y-m-d'),
+            'lieu_naissance' => $this->lieu_naissance,
+            'age' => $this->age,
             'date_entree' => $this->date_entree?->format('Y-m-d'),
             'date_fin_contrat' => $this->date_fin_contrat?->format('Y-m-d'),
             'poste' => $this->poste,

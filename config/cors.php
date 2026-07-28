@@ -30,14 +30,16 @@ return [
         'trim',
         explode(',', (string) env(
             'CORS_ALLOWED_ORIGINS',
-            'http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000,http://localhost:4173,http://127.0.0.1:4173,http://localhost:8080,http://127.0.0.1:8080'
+            'http://localhost:55645,http://127.0.0.1:55645,http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000,http://localhost:4173,http://127.0.0.1:4173,http://localhost:8080,http://127.0.0.1:8080'
         ))
     ))),
 
-    'allowed_origins_patterns' => array_values(array_filter(array_map(
-        'trim',
-        explode(',', (string) env('CORS_ALLOWED_ORIGINS_PATTERNS', ''))
-    ))),
+    // Flutter web : ports dynamiques (ex. http://localhost:55645)
+    // Patterns en dur — les backslashes .env cassent souvent les regex.
+    'allowed_origins_patterns' => [
+        '#^http://localhost(:[0-9]+)?$#',
+        '#^http://127\.0\.0\.1(:[0-9]+)?$#',
+    ],
 
     'allowed_headers' => ['*'],
 

@@ -165,10 +165,14 @@ class AuthController extends Controller
 
     private function maxLoginAttempts(): int
     {
-        $value = DB::table('remote_configs')
-            ->where('key_name', 'max_login_attempts')
-            ->where('is_active', 1)
-            ->value('value_text');
+        try {
+            $value = DB::table('remote_configs')
+                ->where('key_name', 'max_login_attempts')
+                ->where('is_active', 1)
+                ->value('value_text');
+        } catch (\Throwable) {
+            $value = null;
+        }
 
         $max = (int) ($value ?: 5);
 
@@ -177,13 +181,17 @@ class AuthController extends Controller
 
     private function lockSeconds(): int
     {
-        $value = DB::table('remote_configs')
-            ->where('key_name', 'lock_minutes')
-            ->where('is_active', 1)
-            ->value('value_text');
+        try {
+            $value = DB::table('remote_configs')
+                ->where('key_name', 'lock_minutes')
+                ->where('is_active', 1)
+                ->value('value_text');
+        } catch (\Throwable) {
+            $value = null;
+        }
 
         $minutes = (int) ($value ?: 15);
 
-        return max(1, $minutes) * 60;
+        return max(60, $minutes * 60);
     }
 }

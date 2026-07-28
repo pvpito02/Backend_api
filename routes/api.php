@@ -62,6 +62,7 @@ Route::prefix('auth')->group(function () {
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('users', UserController::class);
+    Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword']);
     Route::get('/roles', [RoleController::class, 'index']);
     Route::apiResource('departements', DepartementController::class);
     Route::apiResource('agents', AgentController::class);

@@ -30,6 +30,7 @@ class UserResource extends JsonResource
                 'prenom' => $this->agent->prenom,
                 'nom' => $this->agent->nom,
                 'poste' => $this->agent->poste,
+                'departement_id' => $this->agent->departement_id,
                 'service' => $this->agent->departement?->nom,
                 'telephone' => $this->agent->telephone,
                 'email' => $this->agent->email,

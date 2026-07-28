@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Users\ResetUserPasswordRequest;
 use App\Http\Requests\Users\StoreUserRequest;
 use App\Http\Requests\Users\UpdateUserRequest;
 use App\Http\Resources\UserResource;
@@ -20,7 +21,7 @@ class UserController extends Controller
     {
         $this->authorize('viewAny', User::class);
 
-        $query = User::query()->with(['role', 'agent'])->latest('id');
+        $query = User::query()->with(['role', 'agent.departement'])->latest('id');
 
         if ($request->filled('role')) {
             $query->whereHas('role', fn ($q) => $q->where('name', $request->string('role')));
@@ -75,7 +76,7 @@ class UserController extends Controller
                 ]);
             }
 
-            return $user->load(['role', 'agent']);
+            return $user->load(['role', 'agent.departement']);
         });
 
         return response()->json([
@@ -88,7 +89,7 @@ class UserController extends Controller
     {
         $this->authorize('view', $user);
 
-        $user->load(['role', 'agent']);
+        $user->load(['role', 'agent.departement']);
 
         return response()->json([
             'user' => new UserResource($user),
@@ -99,16 +100,65 @@ class UserController extends Controller
     {
         $this->authorize('update', $user);
 
-        $data = $request->safe()->only([
-            'name', 'email', 'phone', 'role_id', 'avatar_url', 'is_active',
-        ]);
+        $user = DB::transaction(function () use ($request, $user) {
+            $data = $request->safe()->only([
+                'name', 'email', 'phone', 'role_id', 'avatar_url', 'is_active',
+            ]);
 
-        if ($request->filled('password')) {
-            $data['password'] = $request->string('password')->toString();
-        }
+            if ($request->filled('password')) {
+                $data['password'] = $request->string('password')->toString();
+            }
 
-        $user->fill($data)->save();
-        $user->load(['role', 'agent']);
+            $user->fill($data)->save();
+
+            $roleId = $data['role_id'] ?? $user->role_id;
+            $roleName = Role::query()->whereKey($roleId)->value('name');
+
+            if ($roleName === 'agent') {
+                $agentPayload = [
+                    'email' => $user->email,
+                    'telephone' => $user->phone,
+                ];
+
+                if ($request->filled('prenom')) {
+                    $agentPayload['prenom'] = $request->string('prenom')->toString();
+                }
+                if ($request->filled('nom')) {
+                    $agentPayload['nom'] = $request->string('nom')->toString();
+                }
+                if ($request->filled('matricule')) {
+                    $agentPayload['matricule'] = $request->string('matricule')->toString();
+                }
+                if ($request->exists('poste')) {
+                    $agentPayload['poste'] = $request->input('poste');
+                }
+                if ($request->exists('departement_id')) {
+                    $agentPayload['departement_id'] = $request->input('departement_id');
+                }
+                if ($request->filled('avatar_url')) {
+                    $agentPayload['photo_url'] = $request->input('avatar_url');
+                }
+
+                $agent = $user->agent;
+                if ($agent) {
+                    $agent->fill($agentPayload)->save();
+                } else {
+                    Agent::query()->create(array_merge([
+                        'user_id' => $user->id,
+                        'matricule' => $request->string('matricule')->toString() ?: ('EMP'.$user->id),
+                        'prenom' => $request->string('prenom')->toString() ?: explode(' ', $user->name)[0],
+                        'nom' => $request->string('nom')->toString() ?: $user->name,
+                        'statut' => 'Actif',
+                        'is_active' => true,
+                        'photo_url' => $request->input('avatar_url'),
+                    ], $agentPayload));
+                }
+            } elseif ($request->filled('avatar_url') && $user->agent) {
+                $user->agent->forceFill(['photo_url' => $request->input('avatar_url')])->save();
+            }
+
+            return $user->load(['role', 'agent.departement']);
+        });
 
         return response()->json([
             'message' => 'Utilisateur mis à jour.',
@@ -116,12 +166,40 @@ class UserController extends Controller
         ]);
     }
 
+    /**
+     * Réinitialisation MDP par un admin (oubli / perte) — révoque les sessions.
+     */
+    public function resetPassword(ResetUserPasswordRequest $request, User $user): JsonResponse
+    {
+        $this->authorize('update', $user);
+
+        $user->forceFill([
+            'password' => $request->string('password')->toString(),
+        ])->save();
+
+        $user->tokens()->delete();
+
+        return response()->json([
+            'message' => 'Mot de passe réinitialisé. L’utilisateur devra se reconnecter.',
+            'user' => new UserResource($user->load(['role', 'agent.departement'])),
+        ]);
+    }
+
     public function destroy(User $user): JsonResponse
     {
         $this->authorize('delete', $user);
 
-        $user->tokens()->delete();
-        $user->delete();
+        DB::transaction(function () use ($user) {
+            $user->tokens()->delete();
+            // Ne pas supprimer l’agent (historique pointages) : désactiver + détacher.
+            if ($user->agent) {
+                $user->agent->forceFill([
+                    'is_active' => false,
+                    'statut' => 'Inactif',
+                ])->save();
+            }
+            $user->delete();
+        });
 
         return response()->json([
             'message' => 'Utilisateur supprimé.',

@@ -12,13 +12,17 @@ class UpdateUserRequest extends FormRequest
     {
         /** @var \App\Models\User $user */
         $user = $this->route('user');
+        $user?->loadMissing('agent');
 
         return $this->user()?->can('update', $user) ?? false;
     }
 
     public function rules(): array
     {
-        $userId = $this->route('user');
+        /** @var \App\Models\User $user */
+        $user = $this->route('user');
+        $userId = $user->id;
+        $agentId = $user->agent?->id;
 
         return [
             'name' => ['sometimes', 'required', 'string', 'max:150'],
@@ -34,6 +38,17 @@ class UpdateUserRequest extends FormRequest
             'role_id' => ['sometimes', 'required', 'integer', 'exists:roles,id'],
             'avatar_url' => ['nullable', 'string', 'max:255'],
             'is_active' => ['sometimes', 'boolean'],
+            'matricule' => [
+                'nullable',
+                'string',
+                'max:30',
+                Rule::unique('agents', 'matricule')->ignore($agentId),
+                Rule::requiredIf(fn () => $this->isAgentRole()),
+            ],
+            'prenom' => ['nullable', 'string', 'max:100', Rule::requiredIf(fn () => $this->isAgentRole())],
+            'nom' => ['nullable', 'string', 'max:100', Rule::requiredIf(fn () => $this->isAgentRole())],
+            'poste' => ['nullable', 'string', 'max:150'],
+            'departement_id' => ['nullable', 'integer', 'exists:departements,id'],
         ];
     }
 
@@ -42,6 +57,18 @@ class UpdateUserRequest extends FormRequest
         return [
             'email.unique' => 'Cet email est déjà utilisé.',
             'password.confirmed' => 'La confirmation du mot de passe ne correspond pas.',
+            'matricule.unique' => 'Ce matricule existe déjà.',
+            'matricule.required' => 'Le matricule est obligatoire pour un compte agent.',
         ];
+    }
+
+    private function isAgentRole(): bool
+    {
+        /** @var \App\Models\User $user */
+        $user = $this->route('user');
+        $roleId = $this->input('role_id', $user->role_id);
+        $roleName = \App\Models\Role::query()->whereKey($roleId)->value('name');
+
+        return $roleName === 'agent';
     }
 }

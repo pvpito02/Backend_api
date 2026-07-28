@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\ChangePasswordRequest;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\UpdateProfileRequest;
 use App\Http\Resources\UserResource;
 use App\Models\Agent;
 use App\Models\User;
@@ -176,6 +177,32 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Mot de passe mis à jour.',
+        ]);
+    }
+
+    public function updateProfile(UpdateProfileRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $payload = $request->only(['name', 'email', 'phone', 'avatar_url']);
+
+        $user->forceFill($payload)->save();
+
+        if ($user->agent && array_key_exists('avatar_url', $payload) && $payload['avatar_url'] !== null) {
+            $user->agent->forceFill(['photo_url' => $payload['avatar_url']])->save();
+        }
+
+        $this->audit->log('auth.profile_updated', $user, null, $user);
+
+        $user->load(['role', 'agent.departement']);
+        $user->loadCount([
+            'tokens as active_sessions_count' => function ($q) {
+                User::constrainActiveTokens($q);
+            },
+        ]);
+
+        return response()->json([
+            'message' => 'Profil mis à jour.',
+            'user' => new UserResource($user),
         ]);
     }
 

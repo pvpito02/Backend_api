@@ -8,7 +8,10 @@ use Illuminate\Support\Collection;
 
 class NotificationService
 {
-    public function __construct(private readonly PushNotificationService $push) {}
+    public function __construct(
+        private readonly PushNotificationService $push,
+        private readonly RealtimePublisher $realtime,
+    ) {}
 
     public function notifyUser(
         User $user,
@@ -39,6 +42,25 @@ class NotificationService
             'related_id' => $relatedId,
             'notification_id' => $notification->id,
         ]));
+
+        // Temps réel : le mobile / admin rafraîchit l’inbox en quelques secondes.
+        $payload = array_filter([
+            'resource' => 'notification',
+            'id' => $notification->id,
+            'user_id' => $user->id,
+            'type' => $type,
+            'categorie' => $categorie,
+            'related_model' => $relatedModel,
+            'related_id' => $relatedId,
+            'play_sound' => $playSound,
+        ], fn ($v) => $v !== null && $v !== '');
+
+        $this->realtime->publish('notification.created', $payload, 'user', (int) $user->id);
+
+        $agentId = $user->agent?->id;
+        if ($agentId) {
+            $this->realtime->publish('notification.created', $payload, 'agent', (int) $agentId);
+        }
 
         return $notification;
     }

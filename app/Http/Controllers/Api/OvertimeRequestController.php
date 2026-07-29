@@ -64,18 +64,38 @@ class OvertimeRequestController extends Controller
             'heures_sup' => $request->input('heures_sup'),
             'motif' => $request->string('motif')->toString(),
             'statut' => 'EN_ATTENTE',
-        ])->load(['agent', 'approbateur']);
+        ])->load(['agent.user', 'approbateur']);
 
-        $this->notifications->notifyMany(
-            $this->notifications->adminStaffUsers(),
-            'Heures supplémentaires',
-            "Nouvelle demande HS ({$overtime->heures_sup} h).",
-            'confirmation',
-            'heures_sup',
-            'OvertimeRequest',
-            $overtime->id,
-            playSound: true,
-        );
+        $createdByAgent = $request->user()->hasRole('agent');
+        $dateLabel = $overtime->date_travail->format('d/m/Y');
+        $heuresLabel = rtrim(rtrim(number_format((float) $overtime->heures_sup, 2, ',', ' '), '0'), ',');
+
+        if ($createdByAgent) {
+            $this->notifications->notifyMany(
+                $this->notifications->adminStaffUsers(),
+                'Heures supplémentaires',
+                "Nouvelle demande HS ({$heuresLabel} h) pour le {$dateLabel}.",
+                'confirmation',
+                'heures_sup',
+                'OvertimeRequest',
+                $overtime->id,
+                playSound: true,
+            );
+        } elseif ($overtime->agent?->user) {
+            // Admin désigne un agent → l’agent est notifié.
+            $motif = trim((string) $overtime->motif);
+            $motifHint = $motif !== '' ? " Motif : {$motif}." : '';
+            $this->notifications->notifyUser(
+                $overtime->agent->user,
+                'Heures supplémentaires assignées',
+                "Vous avez été désigné pour {$heuresLabel} h supplémentaires le {$dateLabel}.{$motifHint}",
+                'info',
+                'heures_sup',
+                'OvertimeRequest',
+                $overtime->id,
+                playSound: true,
+            );
+        }
 
         $this->audit->log('overtime.create', $overtime);
 

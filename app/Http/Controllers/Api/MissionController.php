@@ -64,10 +64,16 @@ class MissionController extends Controller
         $mission = Mission::query()->create($data)->load(['agent.user', 'creator']);
 
         if ($mission->agent?->user) {
+            $debut = $mission->date_debut?->format('d/m/Y') ?? '';
+            $fin = $mission->date_fin?->format('d/m/Y') ?? '';
+            $periode = $debut === $fin || $fin === ''
+                ? $debut
+                : "{$debut} → {$fin}";
             $this->notifications->notifyUser(
                 $mission->agent->user,
-                'Nouvelle mission',
-                "Mission « {$mission->titre} » prévue à {$mission->lieu}.",
+                'Mission / déplacement assigné',
+                "Vous avez été désigné pour « {$mission->titre} » à {$mission->lieu}"
+                    .($periode !== '' ? " ({$periode})" : '').'.',
                 'info',
                 'mission',
                 'Mission',
@@ -98,19 +104,43 @@ class MissionController extends Controller
         $this->authorize('update', $mission);
 
         $oldStatut = $mission->statut;
+        $oldAgentId = $mission->agent_id;
         $mission->fill($request->validated())->save();
         $mission->load(['agent.user', 'creator']);
 
-        if ($request->filled('statut') && $oldStatut !== $mission->statut && $mission->agent?->user) {
-            $this->notifications->notifyUser(
-                $mission->agent->user,
-                'Mission mise à jour',
-                "Statut de « {$mission->titre} » : {$mission->statut}.",
-                'info',
-                'mission',
-                'Mission',
-                $mission->id,
-            );
+        $agentReassigned = $oldAgentId !== $mission->agent_id;
+        $statutChanged = $request->filled('statut') && $oldStatut !== $mission->statut;
+
+        if ($mission->agent?->user) {
+            if ($agentReassigned) {
+                $debut = $mission->date_debut?->format('d/m/Y') ?? '';
+                $fin = $mission->date_fin?->format('d/m/Y') ?? '';
+                $periode = $debut === $fin || $fin === ''
+                    ? $debut
+                    : "{$debut} → {$fin}";
+                $this->notifications->notifyUser(
+                    $mission->agent->user,
+                    'Mission / déplacement assigné',
+                    "Vous avez été désigné pour « {$mission->titre} » à {$mission->lieu}"
+                        .($periode !== '' ? " ({$periode})" : '').'.',
+                    'info',
+                    'mission',
+                    'Mission',
+                    $mission->id,
+                    playSound: true,
+                );
+            } elseif ($statutChanged) {
+                $this->notifications->notifyUser(
+                    $mission->agent->user,
+                    'Mission mise à jour',
+                    "Statut de « {$mission->titre} » : {$mission->statut}.",
+                    'info',
+                    'mission',
+                    'Mission',
+                    $mission->id,
+                    playSound: true,
+                );
+            }
         }
 
         $this->publishMissionEvent('mission.updated', $mission);

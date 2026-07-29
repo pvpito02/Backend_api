@@ -17,7 +17,11 @@ class UpdateAgentRequest extends FormRequest
 
     public function rules(): array
     {
-        $agentId = $this->route('agent');
+        /** @var \App\Models\Agent|int|string|null $routeAgent */
+        $routeAgent = $this->route('agent');
+        $agentId = $routeAgent instanceof \App\Models\Agent
+            ? $routeAgent->getKey()
+            : $routeAgent;
 
         return [
             'matricule' => [

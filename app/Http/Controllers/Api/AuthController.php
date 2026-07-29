@@ -70,7 +70,7 @@ class AuthController extends Controller
         $newToken->accessToken->forceFill(['last_used_at' => now()])->save();
         $token = $newToken->plainTextToken;
 
-        $user->load(['role', 'agent.departement']);
+        $user->load(['role', 'agent.departement', 'agent.qrCodes']);
         $user->loadCount([
             'tokens as active_sessions_count' => function ($q) {
                 User::constrainActiveTokens($q);
@@ -87,7 +87,7 @@ class AuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
-        $user = $request->user()->load(['role', 'agent.departement']);
+        $user = $request->user()->load(['role', 'agent.departement', 'agent.qrCodes']);
         $user->loadCount([
             'tokens as active_sessions_count' => function ($q) {
                 User::constrainActiveTokens($q);
@@ -193,7 +193,7 @@ class AuthController extends Controller
 
         $this->audit->log('auth.profile_updated', $user, null, $user);
 
-        $user->load(['role', 'agent.departement']);
+        $user->load(['role', 'agent.departement', 'agent.qrCodes']);
         $user->loadCount([
             'tokens as active_sessions_count' => function ($q) {
                 User::constrainActiveTokens($q);

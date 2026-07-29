@@ -67,6 +67,11 @@ class Agent extends Model
         return $this->hasMany(AgentDocument::class);
     }
 
+    public function qrCodes(): HasMany
+    {
+        return $this->hasMany(QrCode::class);
+    }
+
     public function getNomCompletAttribute(): string
     {
         return trim("{$this->prenom} {$this->nom}");

@@ -35,6 +35,24 @@ class UserResource extends JsonResource
                 'telephone' => $this->agent->telephone,
                 'email' => $this->agent->email,
                 'photo_url' => MediaUrl::public($this->agent->photo_url) ?? $this->agent->photo_url,
+                'photo_path' => $this->agent->photo_url,
+                'qr_code' => $this->when(
+                    $this->agent->relationLoaded('qrCodes'),
+                    function () {
+                        foreach ($this->agent->qrCodes->sortByDesc('id') as $qr) {
+                            if ($qr->statut !== 'ACTIF') {
+                                continue;
+                            }
+                            if ($qr->expires_at && $qr->expires_at->isPast()) {
+                                continue;
+                            }
+
+                            return $qr->code;
+                        }
+
+                        return null;
+                    }
+                ),
                 'date_naissance' => $this->agent->date_naissance?->format('Y-m-d'),
                 'lieu_naissance' => $this->agent->lieu_naissance,
                 'age' => $this->agent->age,

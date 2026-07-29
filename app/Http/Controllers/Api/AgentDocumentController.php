@@ -70,6 +70,15 @@ class AgentDocumentController extends Controller
                 $docs[strtolower($type)] = (bool) ($doc?->is_present && $doc?->file_path);
             }
 
+            $photoDoc = $agent->documents->firstWhere('type_document', 'PHOTO');
+            $photoSource = $agent->photo_url
+                ?: (($photoDoc?->is_present && $photoDoc?->file_path) ? $photoDoc->file_path : null);
+
+            // Profil agent (photo_url) compte aussi comme photo de dossier présente
+            if ($agent->photo_url) {
+                $docs['photo'] = true;
+            }
+
             return [
                 'id' => $agent->id,
                 'matricule' => $agent->matricule,
@@ -78,7 +87,7 @@ class AgentDocumentController extends Controller
                 'service' => $agent->departement?->nom,
                 'email' => $agent->email,
                 'telephone' => $agent->telephone,
-                'photo' => MediaUrl::public($agent->photo_url),
+                'photo' => MediaUrl::public($photoSource),
                 'docs' => $docs,
             ];
         });
@@ -120,10 +129,12 @@ class AgentDocumentController extends Controller
             $mime = $stored['mime'];
         }
 
+        $typeDocument = $request->string('type_document')->toString();
+
         $doc = AgentDocument::query()->updateOrCreate(
             [
                 'agent_id' => $agentId,
-                'type_document' => $request->string('type_document')->toString(),
+                'type_document' => $typeDocument,
             ],
             [
                 'file_path' => $filePath,
@@ -134,6 +145,12 @@ class AgentDocumentController extends Controller
                 'notes' => $request->input('notes'),
             ]
         )->load(['agent', 'uploader']);
+
+        // PHOTO dossier → synchronise aussi la photo de profil de l’agent
+        if ($typeDocument === 'PHOTO' && $filePath) {
+            Agent::query()->whereKey($agentId)->update(['photo_url' => $filePath]);
+            $doc->setRelation('agent', $doc->agent?->fresh() ?? Agent::query()->find($agentId));
+        }
 
         $this->audit->log('agent_document.upsert', $doc, [
             'type' => $doc->type_document,
@@ -175,6 +192,12 @@ class AgentDocumentController extends Controller
         }
 
         $agentDocument->fill($data)->save();
+
+        if ($agentDocument->type_document === 'PHOTO' && $agentDocument->file_path) {
+            $agentDocument->agent?->forceFill([
+                'photo_url' => $agentDocument->file_path,
+            ])->save();
+        }
 
         $this->audit->log('agent_document.update', $agentDocument);
 

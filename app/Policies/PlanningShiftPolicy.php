@@ -14,7 +14,18 @@ class PlanningShiftPolicy
 
     public function view(User $user, PlanningShift $planningShift): bool
     {
-        return $this->viewAny($user);
+        if ($user->hasRole(['super_admin', 'admin', 'sous_admin'])) {
+            return true;
+        }
+
+        if ($user->hasRole('agent')) {
+            $deptId = $user->agent?->departement_id;
+
+            return $deptId !== null
+                && (int) $deptId === (int) $planningShift->departement_id;
+        }
+
+        return false;
     }
 
     public function create(User $user): bool

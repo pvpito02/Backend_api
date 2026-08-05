@@ -26,8 +26,20 @@ class PlanningShiftController extends Controller
             ->where('is_active', true)
             ->orderBy('service_label');
 
-        if ($request->filled('departement_id')) {
-            $query->where('departement_id', $request->integer('departement_id'));
+        $user = $request->user();
+
+        // Agent mobile : uniquement le planning de son service (API sécurisée).
+        if ($user && $user->hasRole('agent')) {
+            $deptId = $user->agent?->departement_id;
+            if ($deptId === null) {
+                $query->whereRaw('1 = 0');
+            } else {
+                $query->where('departement_id', (int) $deptId);
+            }
+        } else {
+            if ($request->filled('departement_id')) {
+                $query->where('departement_id', $request->integer('departement_id'));
+            }
         }
 
         if ($request->filled('statut')) {
@@ -62,12 +74,7 @@ class PlanningShiftController extends Controller
 
         $shift = PlanningShift::query()->create($data)->load('departement');
 
-        $this->realtime->publish('planning.created', [
-            'resource' => 'planning',
-            'id' => $shift->id,
-            'departement_id' => $shift->departement_id,
-            'action' => 'create',
-        ], 'admin', null);
+        $this->publishPlanningRealtime('planning.created', $shift, 'create');
 
         return response()->json([
             'message' => 'Quart de planning créé.',
@@ -112,12 +119,7 @@ class PlanningShiftController extends Controller
         $planningShift->fill($data)->save();
         $fresh = $planningShift->fresh()->load('departement');
 
-        $this->realtime->publish('planning.updated', [
-            'resource' => 'planning',
-            'id' => $fresh->id,
-            'departement_id' => $fresh->departement_id,
-            'action' => 'update',
-        ], 'admin', null);
+        $this->publishPlanningRealtime('planning.updated', $fresh, 'update');
 
         return response()->json([
             'message' => 'Quart de planning mis à jour.',
@@ -133,13 +135,24 @@ class PlanningShiftController extends Controller
         $departementId = $planningShift->departement_id;
         $planningShift->delete();
 
-        $this->realtime->publish('planning.deleted', [
+        // Admins + agents connectés (filtrage côté mobile par departement_id).
+        $this->realtime->publishForAll('planning.deleted', [
             'resource' => 'planning',
             'id' => $id,
             'departement_id' => $departementId,
             'action' => 'delete',
-        ], 'admin', null);
+        ]);
 
         return response()->json(['message' => 'Quart de planning supprimé.']);
+    }
+
+    private function publishPlanningRealtime(string $event, PlanningShift $shift, string $action): void
+    {
+        $this->realtime->publishForAll($event, [
+            'resource' => 'planning',
+            'id' => $shift->id,
+            'departement_id' => $shift->departement_id,
+            'action' => $action,
+        ]);
     }
 }

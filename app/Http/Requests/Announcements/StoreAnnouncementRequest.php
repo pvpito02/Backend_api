@@ -19,7 +19,7 @@ class StoreAnnouncementRequest extends FormRequest
             'body' => ['nullable', 'string', 'max:5000'],
             'when_label' => ['nullable', 'string', 'max:100'],
             'place' => ['nullable', 'string', 'max:150'],
-            'image_url' => ['nullable', 'string', 'max:255'],
+            'image_url' => ['nullable', 'string', 'max:255', 'not_regex:/^(blob:|data:)/i'],
             'image' => ['nullable', 'image', 'max:5120'],
             'starts_at' => ['nullable', 'date'],
             'expires_at' => ['nullable', 'date', 'after:starts_at'],

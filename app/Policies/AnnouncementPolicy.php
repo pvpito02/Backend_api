@@ -19,16 +19,16 @@ class AnnouncementPolicy
 
     public function create(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->hasRole(['super_admin', 'admin', 'sous_admin']);
     }
 
     public function update(User $user, Announcement $announcement): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->hasRole(['super_admin', 'admin', 'sous_admin']);
     }
 
     public function delete(User $user, Announcement $announcement): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->hasRole(['super_admin', 'admin', 'sous_admin']);
     }
 }

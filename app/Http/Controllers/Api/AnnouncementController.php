@@ -55,9 +55,28 @@ class AnnouncementController extends Controller
         $data['published_at'] = now();
         $data['created_by'] = $request->user()->id;
 
-        if ($request->filled('starts_at') && $request->filled('duration_hours') && ! $request->filled('expires_at')) {
-            $data['expires_at'] = Carbon::parse($request->input('starts_at'))
-                ->addHours((int) $request->input('duration_hours'));
+        // Début d’affichage : maintenant si absent (évite fenêtre future involontaire).
+        $startsAt = $request->filled('starts_at')
+            ? Carbon::parse($request->input('starts_at'))
+            : now();
+        $data['starts_at'] = $startsAt;
+
+        $durationHours = (int) ($data['duration_hours'] ?? $request->input('duration_hours') ?? 48);
+        if ($durationHours < 1) {
+            $durationHours = 48;
+        }
+        $data['duration_hours'] = $durationHours;
+
+        if (! $request->filled('expires_at')) {
+            $data['expires_at'] = $startsAt->copy()->addHours($durationHours);
+        }
+
+        // Rejeter les URL locales navigateur (blob:/data:) — inutilisables mobile.
+        if (! empty($data['image_url']) && is_string($data['image_url'])) {
+            $img = $data['image_url'];
+            if (str_starts_with($img, 'blob:') || str_starts_with($img, 'data:')) {
+                unset($data['image_url']);
+            }
         }
 
         if ($request->hasFile('image')) {

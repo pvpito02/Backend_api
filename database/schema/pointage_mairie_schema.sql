@@ -509,6 +509,7 @@ INSERT INTO roles (name, display_name, description) VALUES
   ('super_admin', 'Super Administrateur', 'Gère tous les comptes, paramètres et validations'),
   ('admin', 'Administrateur', 'Administration courante (RH, pointages, agents)'),
   ('sous_admin', 'Sous-administrateur', 'Droits limités — consultation et actions courantes'),
+  ('conseiller', 'Conseiller', 'Conseiller municipal — consultation et suivi des dossiers'),
   ('agent', 'Agent', 'Pointage mobile, demandes et consultation personnelle'),
   ('rh', 'RH', 'Alias historique — à mapper vers admin si besoin'),
   ('direction', 'Direction', 'Vue globale — à mapper vers admin / super_admin si besoin');

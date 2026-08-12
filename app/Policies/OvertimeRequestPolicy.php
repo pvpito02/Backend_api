@@ -9,12 +9,12 @@ class OvertimeRequestPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'agent']);
+        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller', 'agent']);
     }
 
     public function view(User $user, OvertimeRequest $overtimeRequest): bool
     {
-        if ($user->hasRole(['super_admin', 'admin', 'sous_admin'])) {
+        if ($user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller'])) {
             return true;
         }
 
@@ -40,7 +40,7 @@ class OvertimeRequestPolicy
 
     public function decide(User $user, OvertimeRequest $overtimeRequest): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin'])
+        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller'])
             && $overtimeRequest->statut === 'EN_ATTENTE';
     }
 

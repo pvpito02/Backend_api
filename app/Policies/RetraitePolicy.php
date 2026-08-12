@@ -9,12 +9,12 @@ class RetraitePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin']);
+        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller']);
     }
 
     public function view(User $user, Retraite $retraite): bool
     {
-        if ($user->hasRole(['super_admin', 'admin', 'sous_admin'])) {
+        if ($user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller'])) {
             return true;
         }
 
@@ -38,6 +38,6 @@ class RetraitePolicy
 
     public function alerts(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin']);
+        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller']);
     }
 }

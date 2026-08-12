@@ -70,7 +70,7 @@ class User extends Authenticatable
 
     public function isAdminStaff(): bool
     {
-        return $this->hasRole(['super_admin', 'admin', 'sous_admin', 'rh', 'direction']);
+        return $this->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller', 'rh', 'direction']);
     }
 
     /** Fenêtre d’activité (minutes) pour considérer une session « en ligne ». */

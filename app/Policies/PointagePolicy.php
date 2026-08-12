@@ -9,12 +9,12 @@ class PointagePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'agent']);
+        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller', 'agent']);
     }
 
     public function view(User $user, Pointage $pointage): bool
     {
-        if ($user->hasRole(['super_admin', 'admin', 'sous_admin'])) {
+        if ($user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller'])) {
             return true;
         }
 
@@ -49,6 +49,6 @@ class PointagePolicy
 
     public function acknowledge(User $user, Pointage $pointage): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin']);
+        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller']);
     }
 }

@@ -9,7 +9,7 @@ class HolidayPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'agent']);
+        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller', 'agent']);
     }
 
     public function view(User $user, Holiday $holiday): bool

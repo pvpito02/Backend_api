@@ -87,7 +87,7 @@ class NotificationService
     {
         return User::query()
             ->where('is_active', true)
-            ->whereHas('role', fn ($q) => $q->whereIn('name', ['super_admin', 'admin', 'sous_admin']))
+            ->whereHas('role', fn ($q) => $q->whereIn('name', ['super_admin', 'admin', 'sous_admin', 'conseiller']))
             ->get();
     }
 }

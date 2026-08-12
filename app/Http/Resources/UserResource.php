@@ -34,8 +34,11 @@ class UserResource extends JsonResource
                 'service' => $this->agent->departement?->nom,
                 'telephone' => $this->agent->telephone,
                 'email' => $this->agent->email,
-                'photo_url' => MediaUrl::public($this->agent->photo_url) ?? $this->agent->photo_url,
-                'photo_path' => $this->agent->photo_url,
+                // Photo agent, sinon avatar compte (staff / sync)
+                'photo_url' => MediaUrl::public(
+                    $this->agent->photo_url ?: $this->avatar_url
+                ) ?? ($this->agent->photo_url ?: $this->avatar_url),
+                'photo_path' => $this->agent->photo_url ?: $this->avatar_url,
                 'qr_code' => $this->when(
                     $this->agent->relationLoaded('qrCodes'),
                     function () {

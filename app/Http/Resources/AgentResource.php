@@ -40,8 +40,8 @@ class AgentResource extends JsonResource
             ] : null),
             'email' => $this->email,
             'telephone' => $this->telephone,
-            'photo_url' => MediaUrl::public($this->photo_url),
-            'photo_path' => $this->photo_url,
+            'photo_url' => MediaUrl::public($this->resolvedPhotoUrl()),
+            'photo_path' => $this->resolvedPhotoUrl(),
             'statut' => $this->statut,
             'is_active' => (bool) $this->is_active,
             'heure_travail_par_jour' => $this->heure_travail_par_jour !== null
@@ -56,5 +56,19 @@ class AgentResource extends JsonResource
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
+    }
+
+    /** Photo fiche agent, sinon avatar du compte lié (staff). */
+    private function resolvedPhotoUrl(): ?string
+    {
+        if (filled($this->photo_url)) {
+            return $this->photo_url;
+        }
+
+        if ($this->relationLoaded('user')) {
+            return $this->user?->avatar_url;
+        }
+
+        return $this->user?->avatar_url;
     }
 }

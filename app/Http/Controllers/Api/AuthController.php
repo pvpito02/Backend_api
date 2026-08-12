@@ -69,7 +69,8 @@ class AuthController extends Controller
         ], $user);
 
         $user->loadMissing('role', 'agent');
-        if (StaffPointageProfileService::isStaffRole($user->role?->name) && ! $user->agent) {
+        // Staff : créer la fiche + resync photo avatar → agent.photo_url à chaque login
+        if (StaffPointageProfileService::isStaffRole($user->role?->name)) {
             $this->staffProfiles->ensureFor($user);
         }
 
@@ -97,10 +98,11 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         $user = $request->user()->load(['role', 'agent.departement', 'agent.qrCodes']);
-        if (StaffPointageProfileService::isStaffRole($user->role?->name) && ! $user->agent) {
+        if (StaffPointageProfileService::isStaffRole($user->role?->name)) {
             $this->staffProfiles->ensureFor($user);
             $user->load(['role', 'agent.departement', 'agent.qrCodes']);
-        }        $user->loadCount([
+        }
+        $user->loadCount([
             'tokens as active_sessions_count' => function ($q) {
                 User::constrainActiveTokens($q);
             },

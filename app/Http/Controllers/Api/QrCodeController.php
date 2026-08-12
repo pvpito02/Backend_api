@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Http\Controllers\Api;
 
@@ -23,7 +23,7 @@ class QrCodeController extends Controller
     {
         $this->authorize('viewAny', QrCode::class);
 
-        $query = QrCode::query()->with('agent')->latest('id');
+        $query = QrCode::query()->with('agent.user')->latest('id');
 
         $tokenName = $request->user()->currentAccessToken()?->name;
         if ($request->user()->shouldScopeToOwnAgent($tokenName)) {
@@ -67,7 +67,7 @@ class QrCodeController extends Controller
                 'issued_at' => now(),
                 'expires_at' => $request->input('expires_at'),
                 'statut' => 'ACTIF',
-            ])->load('agent');
+            ])->load('agent.user');
         });
 
         $this->realtime->publishForAdminAndAgent('qr.created', [
@@ -91,7 +91,7 @@ class QrCodeController extends Controller
         $qrCode->refreshExpiredStatus();
 
         return response()->json([
-            'qr_code' => new QrCodeResource($qrCode->load('agent')),
+            'qr_code' => new QrCodeResource($qrCode->load('agent.user')),
         ]);
     }
 
@@ -100,7 +100,7 @@ class QrCodeController extends Controller
         $this->authorize('update', $qrCode);
 
         $qrCode->fill($request->validated())->save();
-        $fresh = $qrCode->fresh()->load('agent');
+        $fresh = $qrCode->fresh()->load('agent.user');
 
         $this->realtime->publishForAdminAndAgent('qr.updated', [
             'resource' => 'qr',
@@ -121,7 +121,7 @@ class QrCodeController extends Controller
         $this->authorize('revoke', $qrCode);
 
         $qrCode->update(['statut' => 'REVOQUE']);
-        $fresh = $qrCode->fresh()->load('agent');
+        $fresh = $qrCode->fresh()->load('agent.user');
 
         $this->realtime->publishForAdminAndAgent('qr.updated', [
             'resource' => 'qr',
@@ -181,7 +181,7 @@ class QrCodeController extends Controller
         $this->authorize('view', $qr);
 
         return response()->json([
-            'qr_code' => new QrCodeResource($qr->load('agent')),
+            'qr_code' => new QrCodeResource($qr->load('agent.user')),
         ]);
     }
 }

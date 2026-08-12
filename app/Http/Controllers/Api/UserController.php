@@ -10,6 +10,7 @@ use App\Http\Resources\UserResource;
 use App\Models\Agent;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\MatriculeGenerator;
 use App\Services\RealtimePublisher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,7 +20,10 @@ use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
 {
-    public function __construct(private readonly RealtimePublisher $realtime) {}
+    public function __construct(
+        private readonly RealtimePublisher $realtime,
+        private readonly MatriculeGenerator $matricules,
+    ) {}
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -110,10 +114,6 @@ class UserController extends Controller
                     'is_active' => true,
                 ]);
 
-                if ($request->filled('matricule')) {
-                    $agent->matricule = $request->string('matricule')->toString();
-                }
-
                 $agent->user_id = $user->id;
                 $agent->save();
             }
@@ -173,9 +173,6 @@ class UserController extends Controller
                 if ($request->filled('nom')) {
                     $agentPayload['nom'] = $request->string('nom')->toString();
                 }
-                if ($request->filled('matricule')) {
-                    $agentPayload['matricule'] = $request->string('matricule')->toString();
-                }
                 if ($request->exists('poste')) {
                     $agentPayload['poste'] = $request->input('poste');
                 }
@@ -190,9 +187,12 @@ class UserController extends Controller
                 if ($agent) {
                     $agent->fill($agentPayload)->save();
                 } else {
+                    $deptId = isset($agentPayload['departement_id'])
+                        ? (int) $agentPayload['departement_id']
+                        : null;
                     Agent::query()->create(array_merge([
                         'user_id' => $user->id,
-                        'matricule' => $request->string('matricule')->toString() ?: ('EMP'.$user->id),
+                        'matricule' => $this->matricules->generate($deptId),
                         'prenom' => $request->string('prenom')->toString() ?: explode(' ', $user->name)[0],
                         'nom' => $request->string('nom')->toString() ?: $user->name,
                         'statut' => 'Actif',

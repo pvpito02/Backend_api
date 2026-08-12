@@ -39,12 +39,12 @@ class PointagePolicy
 
     public function scan(User $user): bool
     {
-        return $user->hasRole('agent') && $user->agent !== null;
+        return $user->canSelfPointage();
     }
 
     public function sync(User $user): bool
     {
-        return $user->hasRole('agent') && $user->agent !== null;
+        return $user->canSelfPointage();
     }
 
     public function acknowledge(User $user, Pointage $pointage): bool

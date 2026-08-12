@@ -30,10 +30,16 @@ class MatriculeGenerator
         'RH' => 'RH',
     ];
 
-    public function generate(?int $departementId = null, Carbon|string|null $referenceDate = null): string
-    {
+    public function generate(
+        ?int $departementId = null,
+        Carbon|string|null $referenceDate = null,
+        ?string $prefixOverride = null,
+    ): string {
         $year = Carbon::parse($referenceDate ?? now())->format('Y');
-        $prefix = $this->serviceCode($departementId);
+        $prefix = $prefixOverride
+            ? strtoupper(preg_replace('/[^A-Z0-9]/', '', $prefixOverride) ?: 'GEN')
+            : $this->serviceCode($departementId);
+        $prefix = substr($prefix, 0, 3);
 
         for ($attempt = 0; $attempt < 40; $attempt++) {
             $matricule = sprintf('%s-%s%s', $prefix, $year, $this->randomSuffix(6));

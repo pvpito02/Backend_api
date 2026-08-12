@@ -73,6 +73,29 @@ class User extends Authenticatable
         return $this->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller', 'rh', 'direction']);
     }
 
+    /** Peut scanner / synchroniser des pointages (agent RH ou staff avec fiche liée). */
+    public function canSelfPointage(): bool
+    {
+        return $this->agent !== null && ($this->hasRole('agent') || $this->isAdminStaff());
+    }
+
+    /**
+     * Sur l’app mobile, restreindre aux données de sa propre fiche agent
+     * (évite qu’un admin voie tous les pointages via le token mobile).
+     */
+    public function shouldScopeToOwnAgent(?string $tokenName = null): bool
+    {
+        if (! $this->agent) {
+            return false;
+        }
+        if ($this->hasRole('agent')) {
+            return true;
+        }
+        $name = strtolower((string) $tokenName);
+
+        return str_contains($name, 'pointage_mobile') || str_contains($name, 'mobile');
+    }
+
     /** Fenêtre d’activité (minutes) pour considérer une session « en ligne ». */
     public static function onlineThresholdMinutes(): int
     {

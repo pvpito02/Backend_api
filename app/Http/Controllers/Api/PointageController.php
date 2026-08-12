@@ -38,12 +38,13 @@ class PointageController extends Controller
             ->orderByDesc('heure_pointage')
             ->orderByDesc('id');
 
-        // Agent : uniquement ses pointages
-        if ($request->user()->hasRole('agent')) {
+        // Agent / staff mobile : uniquement ses pointages
+        $tokenName = $request->user()->currentAccessToken()?->name;
+        if ($request->user()->shouldScopeToOwnAgent($tokenName)) {
             $query->where('agent_id', $request->user()->agent?->id);
         }
 
-        if ($request->filled('agent_id') && ! $request->user()->hasRole('agent')) {
+        if ($request->filled('agent_id') && ! $request->user()->shouldScopeToOwnAgent($tokenName)) {
             $query->where('agent_id', $request->integer('agent_id'));
         }
 
@@ -194,8 +195,10 @@ class PointageController extends Controller
     {
         $this->authorize('create', Pointage::class);
 
-        // Saisie manuelle admin uniquement (pas le flux scan agent)
-        if ($request->user()->hasRole('agent')) {
+        // Saisie manuelle admin uniquement (pas le flux scan)
+        if ($request->user()->canSelfPointage() && $request->user()->shouldScopeToOwnAgent(
+            $request->user()->currentAccessToken()?->name
+        )) {
             return response()->json([
                 'message' => 'Utilisez /api/pointages/scan pour pointer.',
             ], 403);
@@ -334,7 +337,9 @@ class PointageController extends Controller
     {
         $this->authorize('viewAny', Pointage::class);
 
-        $agentId = $request->user()->hasRole('agent')
+        $tokenName = $request->user()->currentAccessToken()?->name;
+        $scoped = $request->user()->shouldScopeToOwnAgent($tokenName);
+        $agentId = $scoped
             ? $request->user()->agent?->id
             : ($request->integer('agent_id') ?: $request->user()->agent?->id);
 
@@ -343,7 +348,7 @@ class PointageController extends Controller
         }
 
         $agent = Agent::query()->findOrFail($agentId);
-        if ($request->user()->hasRole('agent') && $request->user()->agent?->id !== $agent->id) {
+        if ($scoped && $request->user()->agent?->id !== $agent->id) {
             return response()->json(['message' => 'Accès non autorisé.'], 403);
         }
 

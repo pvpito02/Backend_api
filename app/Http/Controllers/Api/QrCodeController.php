@@ -25,11 +25,12 @@ class QrCodeController extends Controller
 
         $query = QrCode::query()->with('agent')->latest('id');
 
-        if ($request->user()->hasRole('agent')) {
+        $tokenName = $request->user()->currentAccessToken()?->name;
+        if ($request->user()->shouldScopeToOwnAgent($tokenName)) {
             $query->where('agent_id', $request->user()->agent?->id);
         }
 
-        if ($request->filled('agent_id') && ! $request->user()->hasRole('agent')) {
+        if ($request->filled('agent_id') && ! $request->user()->shouldScopeToOwnAgent($tokenName)) {
             $query->where('agent_id', $request->integer('agent_id'));
         }
 

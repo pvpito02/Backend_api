@@ -49,6 +49,14 @@ class AgentController extends Controller
             $query->whereNull('user_id');
         }
 
+        // Par défaut, masquer les fiches « shadow » des comptes staff (admin, conseiller…).
+        if (! $request->boolean('include_staff')) {
+            $query->where(function ($builder) {
+                $builder->whereNull('user_id')
+                    ->orWhereHas('user.role', fn ($r) => $r->where('name', 'agent'));
+            });
+        }
+
         if ($request->filled('q')) {
             $q = '%'.$request->string('q').'%';
             $query->where(function ($builder) use ($q) {

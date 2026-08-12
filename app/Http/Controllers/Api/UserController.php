@@ -12,6 +12,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Services\MatriculeGenerator;
 use App\Services\RealtimePublisher;
+use App\Services\StaffPointageProfileService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -23,6 +24,7 @@ class UserController extends Controller
     public function __construct(
         private readonly RealtimePublisher $realtime,
         private readonly MatriculeGenerator $matricules,
+        private readonly StaffPointageProfileService $staffProfiles,
     ) {}
 
     public function index(Request $request): AnonymousResourceCollection
@@ -116,14 +118,28 @@ class UserController extends Controller
 
                 $agent->user_id = $user->id;
                 $agent->save();
+            } elseif (StaffPointageProfileService::isStaffRole($roleName)) {
+                $names = preg_split('/\s+/', trim((string) $request->input('name', '')), 2) ?: [];
+                $this->staffProfiles->ensureFor($user, [
+                    'prenom' => $request->filled('prenom')
+                        ? $request->string('prenom')->toString()
+                        : ($names[0] ?? null),
+                    'nom' => $request->filled('nom')
+                        ? $request->string('nom')->toString()
+                        : ($names[1] ?? null),
+                    'poste' => $request->input('poste'),
+                    'departement_id' => $request->filled('departement_id')
+                        ? $request->integer('departement_id')
+                        : null,
+                ]);
             }
 
-            return $user->load(['role', 'agent.departement']);
+            return $user->load(['role', 'agent.departement', 'agent.qrCodes']);
         });
 
         $this->publishUserEvent('user.created', $user);
         if ($user->agent) {
-            $this->publishAgentEvent('agent.updated', $user->agent);
+            $this->publishAgentEvent('agent.created', $user->agent);
         }
 
         return response()->json([
@@ -200,11 +216,25 @@ class UserController extends Controller
                         'photo_url' => $request->input('avatar_url'),
                     ], $agentPayload));
                 }
+            } elseif (StaffPointageProfileService::isStaffRole($roleName)) {
+                $names = preg_split('/\s+/', trim((string) $user->name), 2) ?: [];
+                $this->staffProfiles->ensureFor($user->fresh(['role', 'agent']), [
+                    'prenom' => $request->filled('prenom')
+                        ? $request->string('prenom')->toString()
+                        : ($names[0] ?? null),
+                    'nom' => $request->filled('nom')
+                        ? $request->string('nom')->toString()
+                        : ($names[1] ?? null),
+                    'poste' => $request->input('poste'),
+                    'departement_id' => $request->exists('departement_id')
+                        ? $request->input('departement_id')
+                        : ($user->agent?->departement_id),
+                ]);
             } elseif ($request->filled('avatar_url') && $user->agent) {
                 $user->agent->forceFill(['photo_url' => $request->input('avatar_url')])->save();
             }
 
-            return $user->load(['role', 'agent.departement']);
+            return $user->load(['role', 'agent.departement', 'agent.qrCodes']);
         });
 
         $this->publishUserEvent('user.updated', $user);

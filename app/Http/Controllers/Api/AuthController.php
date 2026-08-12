@@ -10,6 +10,7 @@ use App\Http\Resources\UserResource;
 use App\Models\Agent;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\StaffPointageProfileService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +21,10 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    public function __construct(private readonly AuditLogger $audit) {}
+    public function __construct(
+        private readonly AuditLogger $audit,
+        private readonly StaffPointageProfileService $staffProfiles,
+    ) {}
 
     public function login(LoginRequest $request): JsonResponse
     {
@@ -64,6 +68,11 @@ class AuthController extends Controller
             'device_name' => $request->input('device_name'),
         ], $user);
 
+        $user->loadMissing('role', 'agent');
+        if (StaffPointageProfileService::isStaffRole($user->role?->name) && ! $user->agent) {
+            $this->staffProfiles->ensureFor($user);
+        }
+
         $deviceName = $request->string('device_name')->toString() ?: ($request->userAgent() ?: 'api-token');
         $newToken = $user->createToken($deviceName);
         // Marquer immédiatement le token comme actif (sinon online attend la 1re requête)
@@ -88,7 +97,10 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         $user = $request->user()->load(['role', 'agent.departement', 'agent.qrCodes']);
-        $user->loadCount([
+        if (StaffPointageProfileService::isStaffRole($user->role?->name) && ! $user->agent) {
+            $this->staffProfiles->ensureFor($user);
+            $user->load(['role', 'agent.departement', 'agent.qrCodes']);
+        }        $user->loadCount([
             'tokens as active_sessions_count' => function ($q) {
                 User::constrainActiveTokens($q);
             },

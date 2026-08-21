@@ -24,7 +24,16 @@ class UserPolicy
             return true;
         }
 
-        return $this->viewAny($user);
+        if (! $this->viewAny($user)) {
+            return false;
+        }
+
+        // RH / sous-admin : pas de fiche Super
+        if (! $user->isSuperAdmin() && $model->isSuperAdmin()) {
+            return false;
+        }
+
+        return true;
     }
 
     public function create(User $user): bool

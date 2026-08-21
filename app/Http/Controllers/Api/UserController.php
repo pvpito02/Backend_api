@@ -33,6 +33,11 @@ class UserController extends Controller
 
         $query = User::query()->with(['role', 'agent.departement'])->latest('id');
 
+        // RH / sous-admin : masquer les comptes Super (gouvernance)
+        if (! $request->user()?->isSuperAdmin()) {
+            $query->whereHas('role', fn ($q) => $q->where('name', '!=', 'super_admin'));
+        }
+
         $query->withCount([
             'tokens as active_sessions_count' => function ($q) {
                 User::constrainActiveTokens($q);

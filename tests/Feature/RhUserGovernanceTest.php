@@ -153,4 +153,25 @@ class RhUserGovernanceTest extends TestCase
             ])
             ->assertCreated();
     }
+
+    public function test_rh_list_hides_super_admin_accounts(): void
+    {
+        $super = $this->makeUser($this->superRole, 'super.hide@sandiara.sn');
+        $rh = $this->makeUser($this->adminRole, 'rh.list@sandiara.sn');
+        $agent = $this->makeUser($this->agentRole, 'agent.list@sandiara.sn');
+
+        $res = $this->actingAs($rh, 'sanctum')
+            ->getJson('/api/users?per_page=100')
+            ->assertOk();
+
+        $ids = collect($res->json('data'))->pluck('id')->all();
+
+        $this->assertNotContains($super->id, $ids);
+        $this->assertContains($rh->id, $ids);
+        $this->assertContains($agent->id, $ids);
+
+        $this->actingAs($rh, 'sanctum')
+            ->getJson('/api/users/'.$super->id)
+            ->assertForbidden();
+    }
 }

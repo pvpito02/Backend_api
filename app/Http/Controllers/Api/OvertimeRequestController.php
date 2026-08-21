@@ -197,6 +197,29 @@ class OvertimeRequestController extends Controller
             );
         }
 
+        $actor = $request->user();
+        $agentUser = $overtimeRequest->agent?->user;
+        $agentName = $overtimeRequest->agent?->nom_complet ?: 'Agent';
+        $dateLabel = $overtimeRequest->date_travail->format('d/m/Y');
+        $decisionLabel = $decision === 'APPROUVEE' ? 'Approuvées' : 'Refusées';
+        $peers = $this->notifications->adminStaffUsers($actor)
+            ->reject(fn ($u) => $agentUser !== null && (int) $u->id === (int) $agentUser->id)
+            ->values();
+
+        if ($peers->isNotEmpty()) {
+            $this->notifications->notifyMany(
+                $peers,
+                "HS traitées par {$actor->name}",
+                "{$decisionLabel} · {$agentName} · {$dateLabel}.",
+                'traitement',
+                'heures_sup',
+                'OvertimeRequest',
+                $overtimeRequest->id,
+                playSound: true,
+                channel: AppNotification::CHANNEL_WEB,
+            );
+        }
+
         $this->audit->log('overtime.decide', $overtimeRequest, ['decision' => $decision]);
 
         $fresh = $overtimeRequest->fresh()->load(['agent', 'approbateur']);

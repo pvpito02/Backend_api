@@ -255,6 +255,67 @@ class AgentIsolationAndNotificationTest extends TestCase
         );
     }
 
+    public function test_decide_notifies_other_admins_traite_par(): void
+    {
+        $superRole = Role::query()->create([
+            'name' => 'super_admin',
+            'display_name' => 'Super',
+            'description' => 'Test',
+            'is_active' => true,
+        ]);
+
+        $rh = $this->makeAdmin();
+        $super = User::query()->create([
+            'role_id' => $superRole->id,
+            'name' => 'Super Test',
+            'email' => 'super.iso@sandiara.sn',
+            'password' => 'Admin@2026!',
+            'is_active' => true,
+        ]);
+        [$agentUser, $agent] = $this->makeAgentUser('agent.decide@sandiara.sn', 'EMP-DEC2');
+
+        $demande = \App\Models\AbsenceRequest::query()->create([
+            'agent_id' => $agent->id,
+            'type_demande' => 'CONGE',
+            'date_debut' => now()->toDateString(),
+            'date_fin' => now()->addDays(2)->toDateString(),
+            'motif' => 'Repos famille',
+            'statut' => 'EN_ATTENTE',
+        ]);
+
+        $this->actingAs($rh, 'sanctum')
+            ->postJson("/api/demandes/{$demande->id}/decide", [
+                'decision' => 'APPROUVEE',
+            ])
+            ->assertOk();
+
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $agentUser->id,
+            'type' => 'approbation',
+        ]);
+
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $super->id,
+            'type' => 'traitement',
+            'channel' => 'web',
+        ]);
+
+        $peer = AppNotification::query()
+            ->where('user_id', $super->id)
+            ->where('type', 'traitement')
+            ->first();
+
+        $this->assertNotNull($peer);
+        $this->assertStringContainsString('traitée par', (string) $peer->title);
+        $this->assertStringContainsString($rh->name, (string) $peer->title);
+
+        // Le décideur ne reçoit pas « traité par soi »
+        $this->assertDatabaseMissing('notifications', [
+            'user_id' => $rh->id,
+            'type' => 'traitement',
+        ]);
+    }
+
     public function test_agent_cannot_list_other_agent_pointages_via_filter(): void
     {
         [$userA, $agentA] = $this->makeAgentUser('pa@sandiara.sn', 'EMP-PA');

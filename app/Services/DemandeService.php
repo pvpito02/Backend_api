@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\AbsenceRequest;
+use App\Models\AppNotification;
 use App\Models\DemandeStatusHistory;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -73,7 +74,9 @@ class DemandeService
                 $to === 'REJETEE' ? ($motifRejet ?? 'Rejetée') : 'Approuvée',
             );
 
+            $demande->loadMissing('agent.user');
             $agentUser = $demande->agent?->user;
+
             if ($agentUser) {
                 $label = $demande->type_demande;
                 $this->notifications->notifyUser(
@@ -87,6 +90,32 @@ class DemandeService
                     'AbsenceRequest',
                     $demande->id,
                     playSound: true,
+                );
+            }
+
+            // Autres admins (web) : transparence « traité par X »
+            $agentName = $demande->agent?->nom_complet ?: 'Agent';
+            $label = $demande->type_demande;
+            $decisionLabel = $to === 'APPROUVEE' ? 'Approuvée' : 'Rejetée';
+            $peers = $this->notifications->adminStaffUsers($admin)
+                ->reject(fn (User $u) => $agentUser !== null && (int) $u->id === (int) $agentUser->id)
+                ->values();
+
+            if ($peers->isNotEmpty()) {
+                $detail = $to === 'APPROUVEE'
+                    ? "{$decisionLabel} · {$agentName}."
+                    : "{$decisionLabel} · {$agentName}".($motifRejet ? " · Motif : {$motifRejet}" : '.');
+
+                $this->notifications->notifyMany(
+                    $peers,
+                    "Demande {$label} traitée par {$admin->name}",
+                    $detail,
+                    'traitement',
+                    strtolower($label),
+                    'AbsenceRequest',
+                    $demande->id,
+                    playSound: true,
+                    channel: AppNotification::CHANNEL_WEB,
                 );
             }
 

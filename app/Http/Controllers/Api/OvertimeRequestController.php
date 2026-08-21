@@ -7,6 +7,7 @@ use App\Http\Requests\OvertimeRequests\DecideOvertimeRequestRequest;
 use App\Http\Requests\OvertimeRequests\StoreOvertimeRequestRequest;
 use App\Http\Requests\OvertimeRequests\UpdateOvertimeRequestRequest;
 use App\Http\Resources\OvertimeRequestResource;
+use App\Models\AppNotification;
 use App\Models\OvertimeRequest;
 use App\Services\AuditLogger;
 use App\Services\NotificationService;
@@ -29,11 +30,15 @@ class OvertimeRequestController extends Controller
 
         $query = OvertimeRequest::query()->with(['agent', 'approbateur'])->latest('id');
 
-        if ($request->user()->isFieldUser()) {
+        $tokenName = $request->user()->currentAccessToken()?->name;
+        if ($request->user()->isFieldUser()
+            || $request->user()->shouldScopeToOwnAgent($tokenName)) {
             $query->where('agent_id', $request->user()->agent?->id);
         }
 
-        if ($request->filled('agent_id') && ! $request->user()->isFieldUser()) {
+        if ($request->filled('agent_id')
+            && ! $request->user()->isFieldUser()
+            && ! $request->user()->shouldScopeToOwnAgent($tokenName)) {
             $query->where('agent_id', $request->integer('agent_id'));
         }
 
@@ -95,6 +100,7 @@ class OvertimeRequestController extends Controller
                 'OvertimeRequest',
                 $overtime->id,
                 playSound: true,
+                channel: AppNotification::CHANNEL_WEB,
             );
         } elseif ($overtime->agent?->user) {
             // Admin désigne un autre agent → l’agent est notifié.

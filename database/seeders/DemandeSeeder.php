@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\AbsenceRequest;
 use App\Models\Agent;
+use App\Models\AppNotification;
 use App\Models\User;
 use App\Services\DemandeService;
 use App\Services\NotificationService;
@@ -48,6 +49,7 @@ class DemandeSeeder extends Seeder
                 'AbsenceRequest',
                 $demande->id,
                 playSound: true,
+                channel: AppNotification::CHANNEL_WEB,
             );
         }
 

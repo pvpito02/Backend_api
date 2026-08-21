@@ -9,6 +9,12 @@ class AppNotification extends Model
 {
     protected $table = 'notifications';
 
+    public const CHANNEL_WEB = 'web';
+
+    public const CHANNEL_MOBILE = 'mobile';
+
+    public const CHANNEL_BOTH = 'both';
+
     protected $fillable = [
         'user_id',
         'title',
@@ -20,6 +26,7 @@ class AppNotification extends Model
         'related_model',
         'related_id',
         'play_sound',
+        'channel',
     ];
 
     protected function casts(): array

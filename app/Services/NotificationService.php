@@ -22,7 +22,10 @@ class NotificationService
         ?string $relatedModel = null,
         ?int $relatedId = null,
         bool $playSound = false,
+        string $channel = AppNotification::CHANNEL_BOTH,
     ): AppNotification {
+        $channel = $this->normalizeChannel($channel);
+
         $notification = AppNotification::query()->create([
             'user_id' => $user->id,
             'title' => $title,
@@ -33,33 +36,41 @@ class NotificationService
             'related_model' => $relatedModel,
             'related_id' => $relatedId,
             'play_sound' => $playSound,
+            'channel' => $channel,
         ]);
 
-        $this->push->sendToUser($user, $title, $message, array_filter([
-            'type' => $type,
-            'categorie' => $categorie,
-            'related_model' => $relatedModel,
-            'related_id' => $relatedId,
-            'notification_id' => $notification->id,
-        ]));
+        // Push / bandeau mobile : jamais pour les notifs supervision web-only.
+        if ($channel !== AppNotification::CHANNEL_WEB) {
+            $this->push->sendToUser($user, $title, $message, array_filter([
+                'type' => $type,
+                'categorie' => $categorie,
+                'related_model' => $relatedModel,
+                'related_id' => $relatedId,
+                'notification_id' => $notification->id,
+                'channel' => $channel,
+            ]));
+        }
 
-        // Temps réel : le mobile / admin rafraîchit l’inbox en quelques secondes.
-        $payload = array_filter([
-            'resource' => 'notification',
-            'id' => $notification->id,
-            'user_id' => $user->id,
-            'type' => $type,
-            'categorie' => $categorie,
-            'related_model' => $relatedModel,
-            'related_id' => $relatedId,
-            'play_sound' => $playSound,
-        ], fn ($v) => $v !== null && $v !== '');
+        // Temps réel inbox : inutile pour web-only (le mobile ne doit pas les afficher).
+        if ($channel !== AppNotification::CHANNEL_WEB) {
+            $payload = array_filter([
+                'resource' => 'notification',
+                'id' => $notification->id,
+                'user_id' => $user->id,
+                'type' => $type,
+                'categorie' => $categorie,
+                'related_model' => $relatedModel,
+                'related_id' => $relatedId,
+                'play_sound' => $playSound,
+                'channel' => $channel,
+            ], fn ($v) => $v !== null && $v !== '');
 
-        $this->realtime->publish('notification.created', $payload, 'user', (int) $user->id);
+            $this->realtime->publish('notification.created', $payload, 'user', (int) $user->id);
 
-        $agentId = $user->agent?->id;
-        if ($agentId) {
-            $this->realtime->publish('notification.created', $payload, 'agent', (int) $agentId);
+            $agentId = $user->agent?->id;
+            if ($agentId) {
+                $this->realtime->publish('notification.created', $payload, 'agent', (int) $agentId);
+            }
         }
 
         return $notification;
@@ -77,9 +88,20 @@ class NotificationService
         ?string $relatedModel = null,
         ?int $relatedId = null,
         bool $playSound = false,
+        string $channel = AppNotification::CHANNEL_BOTH,
     ): void {
         foreach ($users as $user) {
-            $this->notifyUser($user, $title, $message, $type, $categorie, $relatedModel, $relatedId, $playSound);
+            $this->notifyUser(
+                $user,
+                $title,
+                $message,
+                $type,
+                $categorie,
+                $relatedModel,
+                $relatedId,
+                $playSound,
+                $channel,
+            );
         }
     }
 
@@ -192,5 +214,18 @@ class NotificationService
         }
 
         return $query->get();
+    }
+
+    private function normalizeChannel(string $channel): string
+    {
+        $channel = strtolower(trim($channel));
+
+        return in_array($channel, [
+            AppNotification::CHANNEL_WEB,
+            AppNotification::CHANNEL_MOBILE,
+            AppNotification::CHANNEL_BOTH,
+        ], true)
+            ? $channel
+            : AppNotification::CHANNEL_BOTH;
     }
 }

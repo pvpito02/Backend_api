@@ -21,6 +21,7 @@ class NotificationResource extends JsonResource
             'related_model' => $this->related_model,
             'related_id' => $this->related_id,
             'play_sound' => (bool) $this->play_sound,
+            'channel' => $this->channel ?? 'both',
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }

@@ -7,6 +7,7 @@ use App\Http\Requests\Demandes\DecideDemandeRequest;
 use App\Http\Requests\Demandes\StoreDemandeRequest;
 use App\Http\Resources\DemandeResource;
 use App\Models\AbsenceRequest;
+use App\Models\AppNotification;
 use App\Services\DemandeService;
 use App\Services\MediaService;
 use App\Services\NotificationService;
@@ -33,7 +34,9 @@ class DemandeController extends Controller
             ->with(['agent.departement', 'approbateur'])
             ->latest('id');
 
-        if ($request->user()->isFieldUser()) {
+        $tokenName = $request->user()->currentAccessToken()?->name;
+        if ($request->user()->isFieldUser()
+            || $request->user()->shouldScopeToOwnAgent($tokenName)) {
             $query->where('agent_id', $request->user()->agent?->id);
         }
 
@@ -45,7 +48,9 @@ class DemandeController extends Controller
             $query->where('statut', $request->string('statut'));
         }
 
-        if ($request->filled('agent_id') && ! $request->user()->isFieldUser()) {
+        if ($request->filled('agent_id')
+            && ! $request->user()->isFieldUser()
+            && ! $request->user()->shouldScopeToOwnAgent($tokenName)) {
             $query->where('agent_id', $request->integer('agent_id'));
         }
 
@@ -128,6 +133,7 @@ class DemandeController extends Controller
                 'AbsenceRequest',
                 $demande->id,
                 playSound: true,
+                channel: AppNotification::CHANNEL_WEB,
             );
 
             return $demande->load(['agent.departement', 'history']);

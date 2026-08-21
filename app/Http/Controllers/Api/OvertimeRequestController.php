@@ -50,12 +50,27 @@ class OvertimeRequestController extends Controller
     {
         $this->authorize('create', OvertimeRequest::class);
 
-        $agentId = $request->user()->isFieldUser()
-            ? $request->user()->agent?->id
-            : ($request->integer('agent_id') ?: null);
+        $actor = $request->user();
+        $tokenName = strtolower((string) $actor->currentAccessToken()?->name);
+        $isMobile = str_contains($tokenName, 'mobile') || str_contains($tokenName, 'pointage_mobile');
+
+        if ($actor->isFieldUser()) {
+            $agentId = $actor->agent?->id;
+        } elseif ($request->filled('agent_id')) {
+            $agentId = $request->integer('agent_id');
+        } elseif ($isMobile && $actor->agent) {
+            $agentId = $actor->agent->id;
+        } else {
+            $agentId = $actor->agent?->id;
+        }
 
         if (! $agentId) {
             return response()->json(['message' => 'agent_id requis.'], 422);
+        }
+
+        if ($actor->hasRole('sous_admin')
+            && (int) $agentId !== (int) $actor->agent?->id) {
+            return response()->json(['message' => 'Vous ne pouvez soumettre une demande HS que pour votre propre fiche.'], 403);
         }
 
         $overtime = OvertimeRequest::query()->create([
@@ -66,13 +81,13 @@ class OvertimeRequestController extends Controller
             'statut' => 'EN_ATTENTE',
         ])->load(['agent.user', 'approbateur']);
 
-        $createdByAgent = $request->user()->isFieldUser();
+        $isOwnRequest = $actor->agent?->id && (int) $actor->agent->id === (int) $agentId;
         $dateLabel = $overtime->date_travail->format('d/m/Y');
         $heuresLabel = rtrim(rtrim(number_format((float) $overtime->heures_sup, 2, ',', ' '), '0'), ',');
 
-        if ($createdByAgent) {
+        if ($isOwnRequest || $actor->isFieldUser()) {
             $this->notifications->notifyMany(
-                $this->notifications->adminStaffUsers(),
+                $this->notifications->recipientsForNewRequest($actor, (int) $agentId),
                 'Heures supplémentaires',
                 "Nouvelle demande HS ({$heuresLabel} h) pour le {$dateLabel}.",
                 'confirmation',
@@ -82,7 +97,7 @@ class OvertimeRequestController extends Controller
                 playSound: true,
             );
         } elseif ($overtime->agent?->user) {
-            // Admin désigne un agent → l’agent est notifié.
+            // Admin désigne un autre agent → l’agent est notifié.
             $motif = trim((string) $overtime->motif);
             $motifHint = $motif !== '' ? " Motif : {$motif}." : '';
             $this->notifications->notifyUser(

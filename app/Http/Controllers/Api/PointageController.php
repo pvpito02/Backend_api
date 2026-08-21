@@ -33,7 +33,7 @@ class PointageController extends Controller
         $this->authorize('viewAny', Pointage::class);
 
         $query = Pointage::query()
-            ->with(['agent.departement', 'site', 'anomalies'])
+            ->with(['agent.departement', 'agent.user.role', 'site', 'anomalies'])
             ->orderByDesc('date_pointage')
             ->orderByDesc('heure_pointage')
             ->orderByDesc('id');
@@ -111,6 +111,7 @@ class PointageController extends Controller
             'pending_sync' => false,
         ]);
 
+        // Pas de notif inbox (volume) : les admins voient le pointage via realtime + liste /pointages.
         $this->realtime->publishForAdminAndAgent('pointage.created', [
             'resource' => 'pointage',
             'id' => $pointage->id,

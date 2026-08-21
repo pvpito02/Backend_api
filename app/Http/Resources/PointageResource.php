@@ -37,6 +37,12 @@ class PointageResource extends JsonResource
                 'nom_complet' => $this->agent->nom_complet,
                 'poste' => $this->agent->poste,
                 'service' => $this->agent->departement?->nom,
+                'role' => $this->agent->relationLoaded('user') && $this->agent->user?->relationLoaded('role')
+                    ? ($this->agent->user->role?->name)
+                    : null,
+                'role_label' => $this->agent->relationLoaded('user') && $this->agent->user?->relationLoaded('role')
+                    ? ($this->agent->user->role?->display_name ?? $this->agent->user->role?->name)
+                    : null,
             ] : null),
             'site' => $this->whenLoaded('site', fn () => $this->site ? [
                 'id' => $this->site->id,

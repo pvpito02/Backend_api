@@ -18,7 +18,18 @@ class StoreDemandeRequest extends FormRequest
 
         return [
             'agent_id' => [
-                Rule::requiredIf(fn () => $this->user()?->isAdminStaff()),
+                // Web staff sans agent_id dans le body : obligatoire.
+                // Mobile staff / terrain : la fiche liée est utilisée automatiquement.
+                Rule::requiredIf(function () {
+                    $u = $this->user();
+                    if (! $u?->isAdminStaff()) {
+                        return false;
+                    }
+                    $token = strtolower((string) $u->currentAccessToken()?->name);
+                    $mobile = str_contains($token, 'mobile') || str_contains($token, 'pointage_mobile');
+
+                    return ! ($mobile && $u->agent);
+                }),
                 'nullable',
                 'integer',
                 'exists:agents,id',

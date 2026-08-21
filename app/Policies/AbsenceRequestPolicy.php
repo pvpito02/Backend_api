@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\AbsenceRequest;
 use App\Models\User;
+use App\Services\NotificationService;
 
 class AbsenceRequestPolicy
 {
@@ -23,18 +24,24 @@ class AbsenceRequestPolicy
 
     public function create(User $user): bool
     {
-        // Admins web peuvent créer pour un agent ; terrain = sa propre fiche
+        // Admins web : pour un agent ; staff/terrain avec fiche : demande perso
         if ($user->hasRole(['super_admin', 'admin'])) {
             return true;
         }
 
-        return $user->isFieldUser() && $user->agent !== null;
+        if ($user->isFieldUser() && $user->agent !== null) {
+            return true;
+        }
+
+        return $user->isAdminStaff() && $user->agent !== null;
     }
 
     public function update(User $user, AbsenceRequest $demande): bool
     {
-        if ($user->isFieldUser() && $user->agent?->id === $demande->agent_id) {
-            return $demande->statut === 'EN_ATTENTE';
+        if ($user->agent?->id === $demande->agent_id
+            && ($user->isFieldUser() || $user->isAdminStaff())
+            && $demande->statut === 'EN_ATTENTE') {
+            return true;
         }
 
         return $user->hasRole(['super_admin', 'admin']);
@@ -42,8 +49,16 @@ class AbsenceRequestPolicy
 
     public function decide(User $user, AbsenceRequest $demande): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin'])
-            && in_array($demande->statut, ['EN_ATTENTE', 'EN_COURS'], true);
+        if (! in_array($demande->statut, ['EN_ATTENTE', 'EN_COURS'], true)) {
+            return false;
+        }
+
+        $demande->loadMissing('agent.user.role');
+
+        return app(NotificationService::class)->canDecideForOwner(
+            $user,
+            $demande->agent?->user,
+        );
     }
 
     public function cancel(User $user, AbsenceRequest $demande): bool
@@ -56,8 +71,8 @@ class AbsenceRequestPolicy
             return true;
         }
 
-        return $user->isFieldUser()
-            && $user->agent?->id === $demande->agent_id
+        return $user->agent?->id === $demande->agent_id
+            && ($user->isFieldUser() || $user->isAdminStaff())
             && $demande->statut === 'EN_ATTENTE';
     }
 

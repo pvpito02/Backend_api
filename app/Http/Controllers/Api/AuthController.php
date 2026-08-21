@@ -63,10 +63,18 @@ class AuthController extends Controller
             'last_user_agent' => Str::limit((string) $request->userAgent(), 255, ''),
         ])->save();
 
-        $this->audit->log('auth.login', $user, [
-            'ip' => $request->ip(),
-            'device_name' => $request->input('device_name'),
-        ], $user);
+        $this->audit->log(
+            'auth.login',
+            $user,
+            [
+                'ip' => $request->ip(),
+                'device_name' => $request->input('device_name'),
+            ],
+            $user,
+            AuditLogger::PERMISSION_LOGIN,
+            'Connexion · '.$user->name,
+            $request,
+        );
 
         $user->loadMissing('role', 'agent');
         // Staff : créer la fiche + resync photo avatar → agent.photo_url à chaque login

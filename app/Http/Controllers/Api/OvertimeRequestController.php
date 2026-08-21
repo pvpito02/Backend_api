@@ -9,7 +9,6 @@ use App\Http\Requests\OvertimeRequests\UpdateOvertimeRequestRequest;
 use App\Http\Resources\OvertimeRequestResource;
 use App\Models\AppNotification;
 use App\Models\OvertimeRequest;
-use App\Services\AuditLogger;
 use App\Services\NotificationService;
 use App\Services\RealtimePublisher;
 use Illuminate\Http\JsonResponse;
@@ -20,7 +19,6 @@ class OvertimeRequestController extends Controller
 {
     public function __construct(
         private readonly NotificationService $notifications,
-        private readonly AuditLogger $audit,
         private readonly RealtimePublisher $realtime,
     ) {}
 
@@ -118,8 +116,6 @@ class OvertimeRequestController extends Controller
             );
         }
 
-        $this->audit->log('overtime.create', $overtime);
-
         $this->realtime->publishForAdminAndAgent('overtime.created', [
             'resource' => 'overtime',
             'id' => $overtime->id,
@@ -148,8 +144,6 @@ class OvertimeRequestController extends Controller
         $this->authorize('update', $overtimeRequest);
 
         $overtimeRequest->fill($request->validated())->save();
-
-        $this->audit->log('overtime.update', $overtimeRequest);
 
         $fresh = $overtimeRequest->fresh()->load(['agent', 'approbateur']);
 
@@ -220,8 +214,6 @@ class OvertimeRequestController extends Controller
             );
         }
 
-        $this->audit->log('overtime.decide', $overtimeRequest, ['decision' => $decision]);
-
         $fresh = $overtimeRequest->fresh()->load(['agent', 'approbateur']);
 
         $this->realtime->publishForAdminAndAgent('overtime.updated', [
@@ -251,7 +243,6 @@ class OvertimeRequestController extends Controller
         ];
         $agentId = (int) $overtimeRequest->agent_id;
 
-        $this->audit->log('overtime.delete', $overtimeRequest);
         $overtimeRequest->delete();
 
         $this->realtime->publishForAdminAndAgent('overtime.deleted', $payload, $agentId);

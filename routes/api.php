@@ -53,7 +53,7 @@ Route::get('/public/branding', \App\Http\Controllers\Api\PublicBrandingControlle
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
 
-    Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware(['auth:sanctum', 'audit.admin'])->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::post('/logout-all', [AuthController::class, 'logoutAll']);
@@ -63,7 +63,7 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'audit.admin'])->group(function () {
     Route::apiResource('users', UserController::class);
     Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword']);
     Route::get('/roles', [RoleController::class, 'index']);

@@ -70,13 +70,20 @@ class User extends Authenticatable
 
     public function isAdminStaff(): bool
     {
-        return $this->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller', 'rh', 'direction']);
+        // Accès supervision web / traitement demandes — pas le conseiller (mobile only)
+        return $this->hasRole(['super_admin', 'admin', 'sous_admin', 'rh', 'direction']);
     }
 
-    /** Peut scanner / synchroniser des pointages (agent RH ou staff avec fiche liée). */
+    /** Utilisateur terrain (mobile) : agent ou conseiller — données perso uniquement. */
+    public function isFieldUser(): bool
+    {
+        return $this->hasRole(['agent', 'conseiller']);
+    }
+
+    /** Peut scanner / synchroniser des pointages (agent/conseiller ou staff avec fiche liée). */
     public function canSelfPointage(): bool
     {
-        return $this->agent !== null && ($this->hasRole('agent') || $this->isAdminStaff());
+        return $this->agent !== null && ($this->isFieldUser() || $this->isAdminStaff());
     }
 
     /**
@@ -88,7 +95,7 @@ class User extends Authenticatable
         if (! $this->agent) {
             return false;
         }
-        if ($this->hasRole('agent')) {
+        if ($this->isFieldUser()) {
             return true;
         }
         $name = strtolower((string) $tokenName);

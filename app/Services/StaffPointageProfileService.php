@@ -9,8 +9,8 @@ use App\Models\User;
 use Illuminate\Support\Str;
 
 /**
- * Crée / met à jour la fiche Agent + QR pour les comptes staff
- * (super_admin, admin, sous_admin, conseiller) afin qu’ils puissent pointer.
+ * Crée / met à jour la fiche Agent + QR pour les comptes qui pointent hors rôle « agent »
+ * (super_admin, admin, sous_admin, conseiller, …).
  */
 class StaffPointageProfileService
 {

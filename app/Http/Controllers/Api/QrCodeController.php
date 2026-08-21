@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 namespace App\Http\Controllers\Api;
 
@@ -157,7 +157,7 @@ class QrCodeController extends Controller
         return response()->json(['message' => 'QR supprimé.']);
     }
 
-    /** QR actif de l’agent connecté (mobile). */
+    /** QR actif de l'agent connecté (mobile). */
     public function mine(Request $request): JsonResponse
     {
         $agent = $request->user()->agent;

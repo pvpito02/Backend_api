@@ -28,11 +28,11 @@ class MissionController extends Controller
             ->with(['agent', 'creator'])
             ->latest('date_debut');
 
-        if ($request->user()->hasRole('agent')) {
+        if ($request->user()->isFieldUser()) {
             $query->where('agent_id', $request->user()->agent?->id);
         }
 
-        if ($request->filled('agent_id') && ! $request->user()->hasRole('agent')) {
+        if ($request->filled('agent_id') && ! $request->user()->isFieldUser()) {
             $query->where('agent_id', $request->integer('agent_id'));
         }
 

@@ -9,22 +9,22 @@ class PointagePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller', 'agent']);
+        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'agent', 'conseiller']);
     }
 
     public function view(User $user, Pointage $pointage): bool
     {
-        if ($user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller'])) {
+        if ($user->isAdminStaff()) {
             return true;
         }
 
-        return $user->hasRole('agent') && $user->agent?->id === $pointage->agent_id;
+        return $user->isFieldUser() && $user->agent?->id === $pointage->agent_id;
     }
 
     public function create(User $user): bool
     {
-        // Scan agent + saisie manuelle admin
-        return $user->hasRole(['super_admin', 'admin', 'agent']);
+        // Scan terrain + saisie manuelle admin
+        return $user->hasRole(['super_admin', 'admin', 'agent', 'conseiller']);
     }
 
     public function update(User $user, Pointage $pointage): bool
@@ -49,6 +49,6 @@ class PointagePolicy
 
     public function acknowledge(User $user, Pointage $pointage): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller']);
+        return $user->hasRole(['super_admin', 'admin', 'sous_admin']);
     }
 }

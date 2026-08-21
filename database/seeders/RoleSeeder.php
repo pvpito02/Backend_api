@@ -39,7 +39,7 @@ class RoleSeeder extends Seeder
             [
                 'name' => 'conseiller',
                 'display_name' => 'Conseiller',
-                'description' => 'Conseiller municipal — consultation et suivi des dossiers',
+                'description' => 'Espace mobile uniquement — pointage et demandes comme un agent',
                 'is_active' => 1,
                 'created_at' => $now,
                 'updated_at' => $now,

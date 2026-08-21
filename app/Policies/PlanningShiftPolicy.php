@@ -9,16 +9,16 @@ class PlanningShiftPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller', 'agent']);
+        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'agent', 'conseiller']);
     }
 
     public function view(User $user, PlanningShift $planningShift): bool
     {
-        if ($user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller'])) {
+        if ($user->isAdminStaff()) {
             return true;
         }
 
-        if ($user->hasRole('agent')) {
+        if ($user->isFieldUser()) {
             $deptId = $user->agent?->departement_id;
 
             return $deptId !== null

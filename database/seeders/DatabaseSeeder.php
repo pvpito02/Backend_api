@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             RemoteConfigSeeder::class,
             HolidaySeeder::class,
             UserSeeder::class,
+            ConseillerSeeder::class,
             AgentSeeder::class,
             PointageSeeder::class,
             DemandeSeeder::class,

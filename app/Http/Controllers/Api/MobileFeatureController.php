@@ -21,7 +21,7 @@ class MobileFeatureController extends Controller
 
         $query = MobileFeature::query()->orderBy('sort_order');
 
-        if ($request->user()->hasRole('agent') || $request->boolean('visible_only')) {
+        if ($request->user()->isFieldUser() || $request->boolean('visible_only')) {
             $query->where('is_visible', true);
         }
 

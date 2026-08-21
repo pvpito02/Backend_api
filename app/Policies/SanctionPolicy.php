@@ -9,16 +9,16 @@ class SanctionPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller']);
+        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'agent', 'conseiller']);
     }
 
     public function view(User $user, Sanction $sanction): bool
     {
-        if ($user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller'])) {
+        if ($user->isAdminStaff()) {
             return true;
         }
 
-        return $user->hasRole('agent') && $user->agent?->id === $sanction->agent_id;
+        return $user->isFieldUser() && $user->agent?->id === $sanction->agent_id;
     }
 
     public function create(User $user): bool

@@ -33,7 +33,7 @@ class DemandeController extends Controller
             ->with(['agent.departement', 'approbateur'])
             ->latest('id');
 
-        if ($request->user()->hasRole('agent')) {
+        if ($request->user()->isFieldUser()) {
             $query->where('agent_id', $request->user()->agent?->id);
         }
 
@@ -45,7 +45,7 @@ class DemandeController extends Controller
             $query->where('statut', $request->string('statut'));
         }
 
-        if ($request->filled('agent_id') && ! $request->user()->hasRole('agent')) {
+        if ($request->filled('agent_id') && ! $request->user()->isFieldUser()) {
             $query->where('agent_id', $request->integer('agent_id'));
         }
 
@@ -70,7 +70,7 @@ class DemandeController extends Controller
     {
         $this->authorize('create', AbsenceRequest::class);
 
-        $agentId = $request->user()->hasRole('agent')
+        $agentId = $request->user()->isFieldUser()
             ? $request->user()->agent?->id
             : $request->integer('agent_id');
 

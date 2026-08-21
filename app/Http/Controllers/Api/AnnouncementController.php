@@ -27,11 +27,11 @@ class AnnouncementController extends Controller
 
         $query = Announcement::query()->latest('id');
 
-        if ($request->boolean('active_only') || $request->user()->hasRole('agent')) {
+        if ($request->boolean('active_only') || $request->user()->isFieldUser()) {
             $query->activeForMobile()->orderByDesc('priority');
         }
 
-        if ($request->has('is_active') && ! $request->user()->hasRole('agent')) {
+        if ($request->has('is_active') && ! $request->user()->isFieldUser()) {
             $query->where('is_active', filter_var($request->input('is_active'), FILTER_VALIDATE_BOOLEAN));
         }
 

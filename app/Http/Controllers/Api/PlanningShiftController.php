@@ -28,8 +28,8 @@ class PlanningShiftController extends Controller
 
         $user = $request->user();
 
-        // Agent mobile : uniquement le planning de son service (API sécurisée).
-        if ($user && $user->hasRole('agent')) {
+        // Mobile terrain : uniquement le planning de son service (API sécurisée).
+        if ($user && $user->isFieldUser()) {
             $deptId = $user->agent?->departement_id;
             if ($deptId === null) {
                 $query->whereRaw('1 = 0');

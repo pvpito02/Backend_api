@@ -29,11 +29,11 @@ class OvertimeRequestController extends Controller
 
         $query = OvertimeRequest::query()->with(['agent', 'approbateur'])->latest('id');
 
-        if ($request->user()->hasRole('agent')) {
+        if ($request->user()->isFieldUser()) {
             $query->where('agent_id', $request->user()->agent?->id);
         }
 
-        if ($request->filled('agent_id') && ! $request->user()->hasRole('agent')) {
+        if ($request->filled('agent_id') && ! $request->user()->isFieldUser()) {
             $query->where('agent_id', $request->integer('agent_id'));
         }
 
@@ -50,7 +50,7 @@ class OvertimeRequestController extends Controller
     {
         $this->authorize('create', OvertimeRequest::class);
 
-        $agentId = $request->user()->hasRole('agent')
+        $agentId = $request->user()->isFieldUser()
             ? $request->user()->agent?->id
             : ($request->integer('agent_id') ?: null);
 
@@ -66,7 +66,7 @@ class OvertimeRequestController extends Controller
             'statut' => 'EN_ATTENTE',
         ])->load(['agent.user', 'approbateur']);
 
-        $createdByAgent = $request->user()->hasRole('agent');
+        $createdByAgent = $request->user()->isFieldUser();
         $dateLabel = $overtime->date_travail->format('d/m/Y');
         $heuresLabel = rtrim(rtrim(number_format((float) $overtime->heures_sup, 2, ',', ' '), '0'), ',');
 

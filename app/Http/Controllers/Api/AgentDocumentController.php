@@ -30,11 +30,11 @@ class AgentDocumentController extends Controller
 
         $query = AgentDocument::query()->with(['agent', 'uploader'])->latest('id');
 
-        if ($request->user()->hasRole('agent')) {
+        if ($request->user()->isFieldUser()) {
             $query->where('agent_id', $request->user()->agent?->id);
         }
 
-        if ($request->filled('agent_id') && ! $request->user()->hasRole('agent')) {
+        if ($request->filled('agent_id') && ! $request->user()->isFieldUser()) {
             $query->where('agent_id', $request->integer('agent_id'));
         }
 
@@ -52,7 +52,7 @@ class AgentDocumentController extends Controller
     {
         $this->authorize('viewAny', AgentDocument::class);
 
-        if ($request->user()->hasRole('agent')) {
+        if ($request->user()->isFieldUser()) {
             return response()->json(['message' => 'Accès réservé à l’administration.'], 403);
         }
 
@@ -107,7 +107,7 @@ class AgentDocumentController extends Controller
     {
         $this->authorize('create', AgentDocument::class);
 
-        $agentId = $request->user()->hasRole('agent')
+        $agentId = $request->user()->isFieldUser()
             ? $request->user()->agent?->id
             : $request->integer('agent_id');
 

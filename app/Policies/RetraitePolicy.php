@@ -9,16 +9,16 @@ class RetraitePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller']);
+        return $user->hasRole(['super_admin', 'admin', 'sous_admin']);
     }
 
     public function view(User $user, Retraite $retraite): bool
     {
-        if ($user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller'])) {
+        if ($user->isAdminStaff()) {
             return true;
         }
 
-        return $user->hasRole('agent') && $user->agent?->id === $retraite->agent_id;
+        return $user->isFieldUser() && $user->agent?->id === $retraite->agent_id;
     }
 
     public function create(User $user): bool
@@ -38,6 +38,6 @@ class RetraitePolicy
 
     public function alerts(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller']);
+        return $user->hasRole(['super_admin', 'admin', 'sous_admin']);
     }
 }

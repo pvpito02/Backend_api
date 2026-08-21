@@ -8,7 +8,7 @@ class UserPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller']);
+        return $user->hasRole(['super_admin', 'admin', 'sous_admin']);
     }
 
     public function view(User $user, User $model): bool
@@ -17,7 +17,7 @@ class UserPolicy
             return true;
         }
 
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller']);
+        return $user->hasRole(['super_admin', 'admin', 'sous_admin']);
     }
 
     public function create(User $user): bool

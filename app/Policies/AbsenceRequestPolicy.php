@@ -9,28 +9,31 @@ class AbsenceRequestPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller', 'agent']);
+        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'agent', 'conseiller']);
     }
 
     public function view(User $user, AbsenceRequest $demande): bool
     {
-        if ($user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller'])) {
+        if ($user->isAdminStaff()) {
             return true;
         }
 
-        return $user->hasRole('agent') && $user->agent?->id === $demande->agent_id;
+        return $user->isFieldUser() && $user->agent?->id === $demande->agent_id;
     }
 
     public function create(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'agent'])
-            && (! $user->hasRole('agent') || $user->agent !== null);
+        // Admins web peuvent créer pour un agent ; terrain = sa propre fiche
+        if ($user->hasRole(['super_admin', 'admin'])) {
+            return true;
+        }
+
+        return $user->isFieldUser() && $user->agent !== null;
     }
 
     public function update(User $user, AbsenceRequest $demande): bool
     {
-        // Agent peut modifier seulement si encore EN_ATTENTE
-        if ($user->hasRole('agent') && $user->agent?->id === $demande->agent_id) {
+        if ($user->isFieldUser() && $user->agent?->id === $demande->agent_id) {
             return $demande->statut === 'EN_ATTENTE';
         }
 
@@ -39,7 +42,7 @@ class AbsenceRequestPolicy
 
     public function decide(User $user, AbsenceRequest $demande): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller'])
+        return $user->hasRole(['super_admin', 'admin', 'sous_admin'])
             && in_array($demande->statut, ['EN_ATTENTE', 'EN_COURS'], true);
     }
 
@@ -53,7 +56,7 @@ class AbsenceRequestPolicy
             return true;
         }
 
-        return $user->hasRole('agent')
+        return $user->isFieldUser()
             && $user->agent?->id === $demande->agent_id
             && $demande->statut === 'EN_ATTENTE';
     }

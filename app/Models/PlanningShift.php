@@ -9,6 +9,8 @@ class PlanningShift extends Model
 {
     protected $fillable = [
         'departement_id',
+        'audience',
+        'agent_id',
         'service_label',
         'shift_start',
         'shift_end',
@@ -33,6 +35,11 @@ class PlanningShift extends Model
     public function departement(): BelongsTo
     {
         return $this->belongsTo(Departement::class);
+    }
+
+    public function agent(): BelongsTo
+    {
+        return $this->belongsTo(Agent::class);
     }
 
     public function getShiftLabelAttribute(): string

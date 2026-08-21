@@ -18,10 +18,22 @@ class PlanningShiftPolicy
             return true;
         }
 
+        if ($user->hasRole('conseiller')) {
+            $agentId = $user->agent?->id;
+
+            return ($planningShift->audience ?? 'SERVICE') === 'CONSEILLERS'
+                && $agentId !== null
+                && (
+                    $planningShift->agent_id === null
+                    || (int) $planningShift->agent_id === (int) $agentId
+                );
+        }
+
         if ($user->isFieldUser()) {
             $deptId = $user->agent?->departement_id;
 
-            return $deptId !== null
+            return ($planningShift->audience ?? 'SERVICE') === 'SERVICE'
+                && $deptId !== null
                 && (int) $deptId === (int) $planningShift->departement_id;
         }
 
@@ -30,16 +42,16 @@ class PlanningShiftPolicy
 
     public function create(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->hasRole(['super_admin', 'admin', 'sous_admin']);
     }
 
     public function update(User $user, PlanningShift $planningShift): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->hasRole(['super_admin', 'admin', 'sous_admin']);
     }
 
     public function delete(User $user, PlanningShift $planningShift): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->hasRole(['super_admin', 'admin', 'sous_admin']);
     }
 }

@@ -9,12 +9,13 @@ class PointagePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'agent', 'conseiller']);
+        return $user->staffCan('pointages.manage')
+            || $user->hasRole(['sous_admin', 'agent', 'conseiller']);
     }
 
     public function view(User $user, Pointage $pointage): bool
     {
-        if ($user->isAdminStaff()) {
+        if ($user->staffCan('pointages.manage') || $user->hasRole('sous_admin')) {
             return true;
         }
 
@@ -24,17 +25,18 @@ class PointagePolicy
     public function create(User $user): bool
     {
         // Scan terrain + saisie manuelle admin
-        return $user->hasRole(['super_admin', 'admin', 'agent', 'conseiller']);
+        return $user->staffCan('pointages.manage')
+            || $user->hasRole(['agent', 'conseiller']);
     }
 
     public function update(User $user, Pointage $pointage): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->staffCan('pointages.manage');
     }
 
     public function delete(User $user, Pointage $pointage): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->staffCan('pointages.manage');
     }
 
     public function scan(User $user): bool
@@ -49,6 +51,6 @@ class PointagePolicy
 
     public function acknowledge(User $user, Pointage $pointage): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin']);
+        return $user->staffCan('pointages.manage') || $user->hasRole('sous_admin');
     }
 }

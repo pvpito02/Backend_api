@@ -10,12 +10,13 @@ class AbsenceRequestPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'agent', 'conseiller']);
+        return $user->staffCan('demandes.decide')
+            || $user->hasRole(['sous_admin', 'agent', 'conseiller']);
     }
 
     public function view(User $user, AbsenceRequest $demande): bool
     {
-        if ($user->isAdminStaff()) {
+        if ($user->staffCan('demandes.decide') || $user->hasRole('sous_admin')) {
             return true;
         }
 
@@ -24,8 +25,8 @@ class AbsenceRequestPolicy
 
     public function create(User $user): bool
     {
-        // Admins web : pour un agent ; staff/terrain avec fiche : demande perso
-        if ($user->hasRole(['super_admin', 'admin'])) {
+        // Staff avec droit de décision : création pour un agent
+        if ($user->staffCan('demandes.decide')) {
             return true;
         }
 
@@ -44,7 +45,7 @@ class AbsenceRequestPolicy
             return true;
         }
 
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->staffCan('demandes.decide');
     }
 
     public function decide(User $user, AbsenceRequest $demande): bool
@@ -55,10 +56,18 @@ class AbsenceRequestPolicy
 
         $demande->loadMissing('agent.user.role');
 
-        return app(NotificationService::class)->canDecideForOwner(
+        if (! app(NotificationService::class)->canDecideForOwner(
             $user,
             $demande->agent?->user,
-        );
+        )) {
+            return false;
+        }
+
+        if ($user->isSuperAdmin() || $user->hasRole('sous_admin')) {
+            return true;
+        }
+
+        return $user->staffCan('demandes.decide');
     }
 
     public function cancel(User $user, AbsenceRequest $demande): bool
@@ -67,7 +76,7 @@ class AbsenceRequestPolicy
             return false;
         }
 
-        if ($user->hasRole(['super_admin', 'admin'])) {
+        if ($user->staffCan('demandes.decide')) {
             return true;
         }
 
@@ -78,6 +87,6 @@ class AbsenceRequestPolicy
 
     public function delete(User $user, AbsenceRequest $demande): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->staffCan('demandes.decide');
     }
 }

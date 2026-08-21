@@ -16,6 +16,10 @@ class RoleController extends Controller
 
         $roles = Role::query()
             ->where('is_active', true)
+            ->when(
+                ! $request->user()?->isSuperAdmin(),
+                fn ($q) => $q->whereIn('name', $request->user()?->assignableRoleNames() ?? []),
+            )
             ->orderBy('id')
             ->get(['id', 'name', 'display_name', 'description']);
 

@@ -9,12 +9,12 @@ class RetraitePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin']);
+        return $user->staffCan('retraites.manage') || $user->hasRole('sous_admin');
     }
 
     public function view(User $user, Retraite $retraite): bool
     {
-        if ($user->isAdminStaff()) {
+        if ($user->staffCan('retraites.manage') || $user->hasRole('sous_admin')) {
             return true;
         }
 
@@ -23,21 +23,21 @@ class RetraitePolicy
 
     public function create(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->staffCan('retraites.manage');
     }
 
     public function update(User $user, Retraite $retraite): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->staffCan('retraites.manage');
     }
 
     public function delete(User $user, Retraite $retraite): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->staffCan('retraites.manage');
     }
 
     public function alerts(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin']);
+        return $user->staffCan('retraites.manage') || $user->hasRole('sous_admin');
     }
 }

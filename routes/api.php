@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\RetraiteController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\SanctionController;
 use App\Http\Controllers\Api\SiteController;
+use App\Http\Controllers\Api\StaffPermissionController;
 use App\Http\Controllers\Api\StatsController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\WorkScheduleController;
@@ -67,6 +68,7 @@ Route::middleware(['auth:sanctum', 'audit.admin'])->group(function () {
     Route::apiResource('users', UserController::class);
     Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword']);
     Route::get('/roles', [RoleController::class, 'index']);
+    Route::get('/staff-permissions', [StaffPermissionController::class, 'catalog']);
     Route::apiResource('departements', DepartementController::class);
     Route::apiResource('agents', AgentController::class);
     Route::apiResource('sites', SiteController::class);

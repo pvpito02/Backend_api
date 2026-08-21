@@ -9,26 +9,28 @@ class DepartementPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller', 'agent']);
+        return $user->staffCan('departements.manage')
+            || $user->hasRole(['sous_admin', 'conseiller', 'agent']);
     }
 
     public function view(User $user, Departement $departement): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller', 'agent']);
+        return $user->staffCan('departements.manage')
+            || $user->hasRole(['sous_admin', 'conseiller', 'agent']);
     }
 
     public function create(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->staffCan('departements.manage');
     }
 
     public function update(User $user, Departement $departement): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->staffCan('departements.manage');
     }
 
     public function delete(User $user, Departement $departement): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->staffCan('departements.manage');
     }
 }

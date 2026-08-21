@@ -10,12 +10,13 @@ class OvertimeRequestPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'agent', 'conseiller']);
+        return $user->staffCan('overtime.decide')
+            || $user->hasRole(['sous_admin', 'agent', 'conseiller']);
     }
 
     public function view(User $user, OvertimeRequest $overtimeRequest): bool
     {
-        if ($user->isAdminStaff()) {
+        if ($user->staffCan('overtime.decide') || $user->hasRole('sous_admin')) {
             return true;
         }
 
@@ -24,7 +25,7 @@ class OvertimeRequestPolicy
 
     public function create(User $user): bool
     {
-        if ($user->hasRole(['super_admin', 'admin'])) {
+        if ($user->staffCan('overtime.decide')) {
             return true;
         }
 
@@ -37,7 +38,7 @@ class OvertimeRequestPolicy
 
     public function update(User $user, OvertimeRequest $overtimeRequest): bool
     {
-        if ($user->hasRole(['super_admin', 'admin'])) {
+        if ($user->staffCan('overtime.decide')) {
             return true;
         }
 
@@ -54,14 +55,22 @@ class OvertimeRequestPolicy
 
         $overtimeRequest->loadMissing('agent.user.role');
 
-        return app(NotificationService::class)->canDecideForOwner(
+        if (! app(NotificationService::class)->canDecideForOwner(
             $user,
             $overtimeRequest->agent?->user,
-        );
+        )) {
+            return false;
+        }
+
+        if ($user->isSuperAdmin() || $user->hasRole('sous_admin')) {
+            return true;
+        }
+
+        return $user->staffCan('overtime.decide');
     }
 
     public function delete(User $user, OvertimeRequest $overtimeRequest): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->staffCan('overtime.decide');
     }
 }

@@ -9,7 +9,8 @@ class HolidayPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller', 'agent']);
+        return $user->staffCan('calendrier.manage')
+            || $user->hasRole(['sous_admin', 'conseiller', 'agent']);
     }
 
     public function view(User $user, Holiday $holiday): bool
@@ -19,16 +20,16 @@ class HolidayPolicy
 
     public function create(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->staffCan('calendrier.manage');
     }
 
     public function update(User $user, Holiday $holiday): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->staffCan('calendrier.manage');
     }
 
     public function delete(User $user, Holiday $holiday): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->staffCan('calendrier.manage');
     }
 }

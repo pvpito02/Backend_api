@@ -72,9 +72,10 @@ class UserController extends Controller
 
             $data['is_active'] = $data['is_active'] ?? true;
 
-            $user = User::query()->create($data);
+            $roleName = Role::query()->whereKey($data['role_id'])->value('name');
+            $data['permissions'] = $this->resolvePermissionsPayload($request, $roleName);
 
-            $roleName = Role::query()->whereKey($user->role_id)->value('name');
+            $user = User::query()->create($data);
 
             if ($roleName === 'agent') {
                 $agentId = $request->integer('agent_id');
@@ -172,10 +173,18 @@ class UserController extends Controller
                 $data['password'] = $request->string('password')->toString();
             }
 
-            $user->fill($data)->save();
-
             $roleId = $data['role_id'] ?? $user->role_id;
             $roleName = Role::query()->whereKey($roleId)->value('name');
+
+            if ($request->user()?->isSuperAdmin() && ($request->exists('permissions') || isset($data['role_id']))) {
+                $data['permissions'] = $this->resolvePermissionsPayload($request, $roleName, $user);
+            } elseif (isset($data['role_id']) && ! in_array($roleName, ['admin', 'rh'], true)) {
+                $data['permissions'] = null;
+            }
+
+            $user->fill($data)->save();
+
+            $roleName = Role::query()->whereKey($user->role_id)->value('name');
 
             if ($roleName === 'agent') {
                 $agentPayload = [
@@ -342,5 +351,26 @@ class UserController extends Controller
             'statut' => $agent->statut,
             'departement_id' => $agent->departement_id,
         ], $extra), (int) $agent->id);
+    }
+
+    /**
+     * @return list<string>|null
+     */
+    private function resolvePermissionsPayload(Request $request, ?string $roleName, ?User $existing = null): ?array
+    {
+        if (! in_array($roleName, ['admin', 'rh'], true)) {
+            return null;
+        }
+
+        $actor = $request->user();
+        if ($actor?->isSuperAdmin() && $request->exists('permissions')) {
+            return \App\Support\StaffPermissions::sanitize($request->input('permissions'));
+        }
+
+        if ($existing && is_array($existing->permissions) && $existing->permissions !== []) {
+            return \App\Support\StaffPermissions::sanitize($existing->permissions);
+        }
+
+        return \App\Support\StaffPermissions::defaults();
     }
 }

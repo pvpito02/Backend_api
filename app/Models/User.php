@@ -23,6 +23,7 @@ class User extends Authenticatable
         'password',
         'avatar_url',
         'is_active',
+        'permissions',
         'last_login_at',
         'last_logout_at',
         'last_login_ip',
@@ -42,6 +43,7 @@ class User extends Authenticatable
             'last_logout_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'permissions' => 'array',
         ];
     }
 
@@ -66,6 +68,99 @@ class User extends Authenticatable
         $roles = (array) $roles;
 
         return in_array($name, $roles, true);
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->hasRole('super_admin');
+    }
+
+    /**
+     * Rôles qu’un acteur peut assigner à la création / modification d’un compte.
+     * Super : tous. RH : opérationnels seulement (pas Super, pas autre RH).
+     *
+     * @return list<string>
+     */
+    public function assignableRoleNames(): array
+    {
+        if ($this->isSuperAdmin()) {
+            return ['super_admin', 'admin', 'sous_admin', 'rh', 'direction', 'conseiller', 'agent'];
+        }
+
+        if ($this->hasRole(['admin', 'rh'])) {
+            return ['sous_admin', 'conseiller', 'agent'];
+        }
+
+        return [];
+    }
+
+    public function canAssignRoleName(?string $roleName): bool
+    {
+        if ($roleName === null || $roleName === '') {
+            return false;
+        }
+
+        return in_array($roleName, $this->assignableRoleNames(), true);
+    }
+
+    /**
+     * RH ne gère pas les comptes Super / autres RH (sauf son propre profil via /auth/profile).
+     */
+    public function canAdministerAccount(User $target): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        if (! $this->hasRole(['admin', 'rh'])) {
+            return false;
+        }
+
+        if ($target->hasRole(['super_admin', 'admin', 'rh'])) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Droits effectifs du compte RH (null / vide → défauts complets pour rétrocompat).
+     *
+     * @return list<string>
+     */
+    public function effectivePermissions(): array
+    {
+        if (! $this->hasRole(['admin', 'rh'])) {
+            return [];
+        }
+
+        $stored = $this->permissions;
+        if (! is_array($stored) || $stored === []) {
+            return \App\Support\StaffPermissions::defaults();
+        }
+
+        return \App\Support\StaffPermissions::sanitize($stored);
+    }
+
+    public function hasPermission(string $permission): bool
+    {
+        return in_array($permission, $this->effectivePermissions(), true);
+    }
+
+    /**
+     * Super : toujours. RH : selon cases cochées. Autres rôles : false.
+     */
+    public function staffCan(string $permission): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        if ($this->hasRole(['admin', 'rh'])) {
+            return $this->hasPermission($permission);
+        }
+
+        return false;
     }
 
     public function isAdminStaff(): bool

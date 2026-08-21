@@ -9,12 +9,13 @@ class SanctionPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'agent', 'conseiller']);
+        return $user->staffCan('sanctions.manage')
+            || $user->hasRole(['sous_admin', 'agent', 'conseiller']);
     }
 
     public function view(User $user, Sanction $sanction): bool
     {
-        if ($user->isAdminStaff()) {
+        if ($user->staffCan('sanctions.manage') || $user->hasRole('sous_admin')) {
             return true;
         }
 
@@ -23,16 +24,16 @@ class SanctionPolicy
 
     public function create(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->staffCan('sanctions.manage');
     }
 
     public function update(User $user, Sanction $sanction): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->staffCan('sanctions.manage');
     }
 
     public function delete(User $user, Sanction $sanction): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->staffCan('sanctions.manage');
     }
 }

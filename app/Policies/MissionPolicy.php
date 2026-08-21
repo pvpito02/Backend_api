@@ -9,12 +9,13 @@ class MissionPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'agent', 'conseiller']);
+        return $user->staffCan('missions.manage')
+            || $user->hasRole(['sous_admin', 'agent', 'conseiller']);
     }
 
     public function view(User $user, Mission $mission): bool
     {
-        if ($user->isAdminStaff()) {
+        if ($user->staffCan('missions.manage') || $user->hasRole('sous_admin')) {
             return true;
         }
 
@@ -23,16 +24,16 @@ class MissionPolicy
 
     public function create(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->staffCan('missions.manage');
     }
 
     public function update(User $user, Mission $mission): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->staffCan('missions.manage');
     }
 
     public function delete(User $user, Mission $mission): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->staffCan('missions.manage');
     }
 }

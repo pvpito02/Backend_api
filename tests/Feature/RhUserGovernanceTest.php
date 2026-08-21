@@ -1,0 +1,156 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Role;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class RhUserGovernanceTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private Role $superRole;
+
+    private Role $adminRole;
+
+    private Role $agentRole;
+
+    private Role $sousAdminRole;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->superRole = Role::query()->create([
+            'name' => 'super_admin',
+            'display_name' => 'Super',
+            'description' => 'Test',
+            'is_active' => true,
+        ]);
+        $this->adminRole = Role::query()->create([
+            'name' => 'admin',
+            'display_name' => 'RH',
+            'description' => 'Test',
+            'is_active' => true,
+        ]);
+        $this->sousAdminRole = Role::query()->create([
+            'name' => 'sous_admin',
+            'display_name' => 'Sous-admin',
+            'description' => 'Test',
+            'is_active' => true,
+        ]);
+        $this->agentRole = Role::query()->create([
+            'name' => 'agent',
+            'display_name' => 'Agent',
+            'description' => 'Test',
+            'is_active' => true,
+        ]);
+    }
+
+    private function makeUser(Role $role, string $email): User
+    {
+        return User::query()->create([
+            'role_id' => $role->id,
+            'name' => $email,
+            'email' => $email,
+            'password' => 'Admin@2026!',
+            'is_active' => true,
+        ]);
+    }
+
+    public function test_rh_cannot_create_super_admin(): void
+    {
+        $rh = $this->makeUser($this->adminRole, 'rh.gov@sandiara.sn');
+
+        $this->actingAs($rh, 'sanctum')
+            ->postJson('/api/users', [
+                'name' => 'Hack Super',
+                'email' => 'hack.super@sandiara.sn',
+                'password' => 'Admin@2026!',
+                'password_confirmation' => 'Admin@2026!',
+                'role_id' => $this->superRole->id,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['role_id']);
+    }
+
+    public function test_rh_cannot_create_another_rh(): void
+    {
+        $rh = $this->makeUser($this->adminRole, 'rh.gov2@sandiara.sn');
+
+        $this->actingAs($rh, 'sanctum')
+            ->postJson('/api/users', [
+                'name' => 'Autre RH',
+                'email' => 'autre.rh@sandiara.sn',
+                'password' => 'Admin@2026!',
+                'password_confirmation' => 'Admin@2026!',
+                'role_id' => $this->adminRole->id,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['role_id']);
+    }
+
+    public function test_rh_can_create_sous_admin(): void
+    {
+        $rh = $this->makeUser($this->adminRole, 'rh.gov3@sandiara.sn');
+
+        $this->actingAs($rh, 'sanctum')
+            ->postJson('/api/users', [
+                'name' => 'Sous Admin',
+                'email' => 'sous.gov@sandiara.sn',
+                'password' => 'Admin@2026!',
+                'password_confirmation' => 'Admin@2026!',
+                'role_id' => $this->sousAdminRole->id,
+            ])
+            ->assertCreated();
+    }
+
+    public function test_rh_cannot_update_super_or_other_rh(): void
+    {
+        $rh = $this->makeUser($this->adminRole, 'rh.gov4@sandiara.sn');
+        $otherRh = $this->makeUser($this->adminRole, 'rh.peer@sandiara.sn');
+        $super = $this->makeUser($this->superRole, 'super.gov@sandiara.sn');
+
+        $this->actingAs($rh, 'sanctum')
+            ->patchJson('/api/users/'.$super->id, ['name' => 'Nope'])
+            ->assertForbidden();
+
+        $this->actingAs($rh, 'sanctum')
+            ->patchJson('/api/users/'.$otherRh->id, ['name' => 'Nope'])
+            ->assertForbidden();
+    }
+
+    public function test_rh_roles_list_excludes_super_and_admin(): void
+    {
+        $rh = $this->makeUser($this->adminRole, 'rh.gov5@sandiara.sn');
+
+        $names = collect(
+            $this->actingAs($rh, 'sanctum')
+                ->getJson('/api/roles')
+                ->assertOk()
+                ->json('data')
+        )->pluck('name')->all();
+
+        $this->assertNotContains('super_admin', $names);
+        $this->assertNotContains('admin', $names);
+        $this->assertContains('sous_admin', $names);
+        $this->assertContains('agent', $names);
+    }
+
+    public function test_super_can_create_rh(): void
+    {
+        $super = $this->makeUser($this->superRole, 'super.gov2@sandiara.sn');
+
+        $this->actingAs($super, 'sanctum')
+            ->postJson('/api/users', [
+                'name' => 'Nouveau RH',
+                'email' => 'nouveau.rh@sandiara.sn',
+                'password' => 'Admin@2026!',
+                'password_confirmation' => 'Admin@2026!',
+                'role_id' => $this->adminRole->id,
+            ])
+            ->assertCreated();
+    }
+}

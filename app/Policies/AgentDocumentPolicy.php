@@ -9,12 +9,13 @@ class AgentDocumentPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'agent', 'conseiller']);
+        return $user->staffCan('agents.manage')
+            || $user->hasRole(['sous_admin', 'agent', 'conseiller']);
     }
 
     public function view(User $user, AgentDocument $agentDocument): bool
     {
-        if ($user->isAdminStaff()) {
+        if ($user->staffCan('agents.manage') || $user->hasRole('sous_admin')) {
             return true;
         }
 
@@ -23,7 +24,7 @@ class AgentDocumentPolicy
 
     public function create(User $user): bool
     {
-        if ($user->hasRole(['super_admin', 'admin'])) {
+        if ($user->staffCan('agents.manage')) {
             return true;
         }
 
@@ -32,11 +33,11 @@ class AgentDocumentPolicy
 
     public function update(User $user, AgentDocument $agentDocument): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->staffCan('agents.manage');
     }
 
     public function delete(User $user, AgentDocument $agentDocument): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->staffCan('agents.manage');
     }
 }

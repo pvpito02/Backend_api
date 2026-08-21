@@ -9,7 +9,8 @@ class MobileFeaturePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'conseiller', 'agent']);
+        return $user->staffCan('parametres.manage')
+            || $user->hasRole(['sous_admin', 'conseiller', 'agent']);
     }
 
     public function view(User $user, MobileFeature $mobileFeature): bool
@@ -19,6 +20,6 @@ class MobileFeaturePolicy
 
     public function update(User $user, MobileFeature $mobileFeature): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->staffCan('parametres.manage');
     }
 }

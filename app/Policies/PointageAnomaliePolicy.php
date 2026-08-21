@@ -9,12 +9,12 @@ class PointageAnomaliePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin']);
+        return $user->staffCan('pointages.manage') || $user->hasRole('sous_admin');
     }
 
     public function view(User $user, PointageAnomalie $anomalie): bool
     {
-        if ($user->isAdminStaff()) {
+        if ($user->staffCan('pointages.manage') || $user->hasRole('sous_admin')) {
             return true;
         }
 
@@ -24,11 +24,12 @@ class PointageAnomaliePolicy
 
     public function create(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'agent', 'conseiller']);
+        return $user->staffCan('pointages.manage')
+            || $user->hasRole(['sous_admin', 'agent', 'conseiller']);
     }
 
     public function resolve(User $user, PointageAnomalie $anomalie): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin']);
+        return $user->staffCan('pointages.manage') || $user->hasRole('sous_admin');
     }
 }

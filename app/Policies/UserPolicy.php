@@ -4,11 +4,18 @@ namespace App\Policies;
 
 use App\Models\User;
 
+/**
+ * Gouvernance comptes :
+ * - Super : tout
+ * - RH : selon permission utilisateurs.manage — agents / conseillers / sous-admins seulement
+ */
 class UserPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin']);
+        return $user->isSuperAdmin()
+            || $user->staffCan('utilisateurs.manage')
+            || $user->hasRole('sous_admin');
     }
 
     public function view(User $user, User $model): bool
@@ -17,21 +24,25 @@ class UserPolicy
             return true;
         }
 
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin']);
+        return $this->viewAny($user);
     }
 
     public function create(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->isSuperAdmin() || $user->staffCan('utilisateurs.manage');
     }
 
     public function update(User $user, User $model): bool
     {
-        if ($model->hasRole('super_admin') && ! $user->hasRole('super_admin')) {
+        if ($user->id === $model->id && $user->hasRole(['super_admin', 'admin', 'rh'])) {
+            return true;
+        }
+
+        if (! ($user->isSuperAdmin() || $user->staffCan('utilisateurs.manage'))) {
             return false;
         }
 
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->canAdministerAccount($model);
     }
 
     public function delete(User $user, User $model): bool
@@ -40,10 +51,10 @@ class UserPolicy
             return false;
         }
 
-        if ($model->hasRole('super_admin') && ! $user->hasRole('super_admin')) {
+        if (! ($user->isSuperAdmin() || $user->staffCan('utilisateurs.manage'))) {
             return false;
         }
 
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->canAdministerAccount($model);
     }
 }

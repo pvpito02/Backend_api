@@ -9,12 +9,13 @@ class PlanningShiftPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'agent', 'conseiller']);
+        return $user->staffCan('planning.manage')
+            || $user->hasRole(['sous_admin', 'agent', 'conseiller']);
     }
 
     public function view(User $user, PlanningShift $planningShift): bool
     {
-        if ($user->isAdminStaff()) {
+        if ($user->staffCan('planning.manage') || $user->hasRole('sous_admin')) {
             return true;
         }
 
@@ -42,16 +43,16 @@ class PlanningShiftPolicy
 
     public function create(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin']);
+        return $user->staffCan('planning.manage') || $user->hasRole('sous_admin');
     }
 
     public function update(User $user, PlanningShift $planningShift): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin']);
+        return $user->staffCan('planning.manage') || $user->hasRole('sous_admin');
     }
 
     public function delete(User $user, PlanningShift $planningShift): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin']);
+        return $user->staffCan('planning.manage') || $user->hasRole('sous_admin');
     }
 }

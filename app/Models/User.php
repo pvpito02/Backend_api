@@ -84,7 +84,11 @@ class User extends Authenticatable
     public function assignableRoleNames(): array
     {
         if ($this->isSuperAdmin()) {
-            return ['super_admin', 'admin', 'sous_admin', 'rh', 'direction', 'conseiller', 'agent'];
+            return Role::query()
+                ->where('is_active', true)
+                ->orderBy('id')
+                ->pluck('name')
+                ->all();
         }
 
         if ($this->hasRole(['admin', 'rh'])) {

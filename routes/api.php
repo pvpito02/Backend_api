@@ -68,6 +68,10 @@ Route::middleware(['auth:sanctum', 'audit.admin'])->group(function () {
     Route::apiResource('users', UserController::class);
     Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword']);
     Route::get('/roles', [RoleController::class, 'index']);
+    Route::post('/roles', [RoleController::class, 'store']);
+    Route::get('/roles/{role}', [RoleController::class, 'show']);
+    Route::patch('/roles/{role}', [RoleController::class, 'update']);
+    Route::delete('/roles/{role}', [RoleController::class, 'destroy']);
     Route::get('/staff-permissions', [StaffPermissionController::class, 'catalog']);
     Route::apiResource('departements', DepartementController::class);
     Route::apiResource('agents', AgentController::class);

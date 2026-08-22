@@ -116,10 +116,11 @@ class AuthController extends Controller
             },
         ]);
 
-        // Touche la session courante (activité)
-        $request->user()->currentAccessToken()?->forceFill([
-            'last_used_at' => now(),
-        ])->save();
+        // Touche la session courante (activité) — ignore TransientToken / absence de PAT
+        $accessToken = $request->user()->currentAccessToken();
+        if ($accessToken instanceof \Laravel\Sanctum\PersonalAccessToken) {
+            $accessToken->forceFill(['last_used_at' => now()])->save();
+        }
 
         return response()->json([
             'user' => new UserResource($user),
@@ -131,9 +132,10 @@ class AuthController extends Controller
      */
     public function heartbeat(Request $request): JsonResponse
     {
-        $token = $request->user()->currentAccessToken();
-        if ($token) {
-            $token->forceFill(['last_used_at' => now()])->save();
+        $accessToken = $request->user()->currentAccessToken();
+        if ($accessToken instanceof \Laravel\Sanctum\PersonalAccessToken) {
+            $accessToken->last_used_at = now();
+            $accessToken->save();
         }
 
         $user = $request->user();

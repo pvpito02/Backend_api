@@ -77,6 +77,9 @@ class ExportController extends Controller
         if ($request->filled('to')) {
             $query->whereDate('date_pointage', '<=', $request->string('to'));
         }
+        if ($request->filled('agent_id')) {
+            $query->where('agent_id', $request->integer('agent_id'));
+        }
 
         return $this->csvDownload('retards.csv', [
             'Date', 'Agent', 'Matricule', 'Heure', 'Statut', 'Retard (min)', 'Service',
@@ -141,11 +144,15 @@ class ExportController extends Controller
         if ($request->filled('statut')) {
             $query->where('statut', $request->string('statut'));
         }
+        // Période métier = dates de la demande (pas created_at)
         if ($request->filled('from')) {
-            $query->whereDate('created_at', '>=', $request->string('from'));
+            $query->whereDate('date_debut', '>=', $request->string('from'));
         }
         if ($request->filled('to')) {
-            $query->whereDate('created_at', '<=', $request->string('to'));
+            $query->whereDate('date_debut', '<=', $request->string('to'));
+        }
+        if ($request->filled('agent_id')) {
+            $query->where('agent_id', $request->integer('agent_id'));
         }
 
         return $this->csvDownload('demandes.csv', [

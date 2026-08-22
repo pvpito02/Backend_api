@@ -19,7 +19,7 @@ class UpdateSanctionRequest extends FormRequest
             'titre' => ['sometimes', 'required', 'string', 'max:150'],
             'description' => ['sometimes', 'required', 'string', 'max:5000'],
             'date_debut' => ['sometimes', 'date'],
-            'date_fin' => ['nullable', 'date'],
+            'date_fin' => ['nullable', 'date', 'after_or_equal:date_debut'],
             'severite' => ['sometimes', Rule::in(['faible', 'moyenne', 'elevee'])],
             'statut' => ['sometimes', Rule::in(['ACTIVE', 'TERMINEE', 'ANNULEE'])],
         ];

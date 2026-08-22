@@ -129,12 +129,14 @@ class RetraiteController extends Controller
         $this->authorize('create', Retraite::class);
 
         $data = $request->validated();
+        $markAgent = $request->boolean('mark_agent_retraite');
+        unset($data['mark_agent_retraite']);
         $data['statut'] = $data['statut'] ?? 'EN_COURS';
         $data['created_by'] = $request->user()->id;
 
         $retraite = Retraite::query()->create($data)->load(['agent.departement', 'creator']);
 
-        if ($request->boolean('mark_agent_retraite')) {
+        if ($markAgent) {
             $retraite->agent?->update(['statut' => 'Retraité', 'is_active' => false]);
         }
 

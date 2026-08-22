@@ -234,6 +234,17 @@ class PointageService
 
     public function assertWorkingDay(Carbon $at): void
     {
+        $isHoliday = DB::table('holidays')
+            ->whereDate('date_holiday', $at->toDateString())
+            ->where('is_active', 1)
+            ->exists();
+
+        if ($isHoliday) {
+            throw ValidationException::withMessages([
+                'scan' => ['Jour férié : pointage non requis / bloqué.'],
+            ]);
+        }
+
         $schedule = WorkSchedule::activeDefault();
         if (! $schedule) {
             return;
@@ -250,17 +261,6 @@ class PointageService
         if (! $schedule->work_saturday && $dow === Carbon::SATURDAY) {
             throw ValidationException::withMessages([
                 'scan' => ['Pointage non autorisé le samedi.'],
-            ]);
-        }
-
-        $isHoliday = DB::table('holidays')
-            ->where('date_holiday', $at->toDateString())
-            ->where('is_active', 1)
-            ->exists();
-
-        if ($isHoliday) {
-            throw ValidationException::withMessages([
-                'scan' => ['Jour férié : pointage non requis / bloqué.'],
             ]);
         }
     }

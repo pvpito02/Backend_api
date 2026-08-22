@@ -26,7 +26,13 @@ class SanctionController extends Controller
 
         $query = Sanction::query()->with(['agent', 'creator'])->latest('id');
 
-        if ($request->filled('agent_id')) {
+        // Agent / conseiller : uniquement ses propres sanctions (confidentialité)
+        $actor = $request->user();
+        if ($actor && $actor->isFieldUser() && ! $actor->staffCan('sanctions.manage') && ! $actor->hasRole('sous_admin')) {
+            $agentId = $actor->agent?->id;
+            abort_unless($agentId, 403, 'Aucun profil agent lié.');
+            $query->where('agent_id', $agentId);
+        } elseif ($request->filled('agent_id')) {
             $query->where('agent_id', $request->integer('agent_id'));
         }
 

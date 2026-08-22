@@ -17,7 +17,7 @@ class StoreHolidayRequest extends FormRequest
         return [
             'libelle' => ['required', 'string', 'max:150'],
             'date_holiday' => ['required', 'date', 'unique:holidays,date_holiday'],
-            'type_holiday' => ['required', Rule::in(['FERIE', 'JOURNALIER', 'SPECIAL', 'RELIGIEUX', 'MUNICIPAL'])],
+            'type_holiday' => ['required', Rule::in(['FERIE', 'JOURNALIER', 'SPECIAL'])],
             'is_active' => ['sometimes', 'boolean'],
         ];
     }
@@ -26,7 +26,7 @@ class StoreHolidayRequest extends FormRequest
     {
         return [
             'date_holiday.unique' => 'Un événement existe déjà à cette date.',
-            'type_holiday.in' => 'Type invalide (FERIE, JOURNALIER, SPECIAL, RELIGIEUX, MUNICIPAL).',
+            'type_holiday.in' => 'Type invalide (FERIE, JOURNALIER, SPECIAL).',
         ];
     }
 }

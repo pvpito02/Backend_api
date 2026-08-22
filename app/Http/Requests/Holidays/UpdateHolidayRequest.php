@@ -22,7 +22,7 @@ class UpdateHolidayRequest extends FormRequest
                 'sometimes', 'required', 'date',
                 Rule::unique('holidays', 'date_holiday')->ignore($id),
             ],
-            'type_holiday' => ['sometimes', Rule::in(['FERIE', 'JOURNALIER', 'SPECIAL', 'RELIGIEUX', 'MUNICIPAL'])],
+            'type_holiday' => ['sometimes', Rule::in(['FERIE', 'JOURNALIER', 'SPECIAL'])],
             'is_active' => ['sometimes', 'boolean'],
         ];
     }

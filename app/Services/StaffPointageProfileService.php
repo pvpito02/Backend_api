@@ -30,7 +30,18 @@ class StaffPointageProfileService
 
     public static function isStaffRole(?string $roleName): bool
     {
-        return $roleName !== null && in_array($roleName, self::STAFF_ROLES, true);
+        if ($roleName === null || $roleName === '') {
+            return false;
+        }
+
+        // Terrain mobile only — pas de fiche staff auto
+        if (in_array($roleName, ['agent'], true)) {
+            return false;
+        }
+
+        // Système staff + conseiller + tout rôle personnalisé (accès web / pointage staff)
+        return in_array($roleName, self::STAFF_ROLES, true)
+            || ! in_array($roleName, Role::SYSTEM_NAMES, true);
     }
 
     /**

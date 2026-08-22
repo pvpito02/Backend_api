@@ -24,8 +24,8 @@ class UserResource extends JsonResource
                 'name' => $this->role->name,
                 'display_name' => $this->role->display_name,
             ] : null),
-            // Cases cochées RH (Super voit / édite ; RH reçoit ses droits effectifs)
-            'permissions' => $this->hasRole(['admin', 'rh'])
+            // Cases cochées RH / rôles perso (Super voit / édite)
+            'permissions' => $this->usesGranularPermissions()
                 ? $this->effectivePermissions()
                 : ($this->isSuperAdmin() ? \App\Support\StaffPermissions::defaults() : null),
             'agent' => $this->whenLoaded('agent', fn () => $this->agent ? [

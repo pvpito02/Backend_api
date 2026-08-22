@@ -128,13 +128,14 @@ class User extends Authenticatable
     }
 
     /**
-     * Droits effectifs du compte RH (null / vide → défauts complets pour rétrocompat).
+     * Droits effectifs du compte RH / rôle personnalisé web
+     * (null / vide → défauts complets pour rétrocompat).
      *
      * @return list<string>
      */
     public function effectivePermissions(): array
     {
-        if (! $this->hasRole(['admin', 'rh'])) {
+        if (! $this->usesGranularPermissions()) {
             return [];
         }
 
@@ -152,7 +153,25 @@ class User extends Authenticatable
     }
 
     /**
-     * Super : toujours. RH : selon cases cochées. Autres rôles : false.
+     * Compte avec grille de permissions (Admin/RH ou rôle personnalisé).
+     */
+    public function usesGranularPermissions(): bool
+    {
+        return $this->hasRole(['admin', 'rh']) || $this->isCustomRole();
+    }
+
+    /**
+     * Rôle créé via l’UI Super (hors seed système).
+     */
+    public function isCustomRole(): bool
+    {
+        $name = $this->role?->name;
+
+        return $name !== null && ! in_array($name, Role::SYSTEM_NAMES, true);
+    }
+
+    /**
+     * Super : toujours. RH / rôle perso : selon cases. Autres : false.
      */
     public function staffCan(string $permission): bool
     {
@@ -160,7 +179,7 @@ class User extends Authenticatable
             return true;
         }
 
-        if ($this->hasRole(['admin', 'rh'])) {
+        if ($this->usesGranularPermissions()) {
             return $this->hasPermission($permission);
         }
 
@@ -169,8 +188,13 @@ class User extends Authenticatable
 
     public function isAdminStaff(): bool
     {
-        // Accès supervision web / traitement demandes — pas le conseiller (mobile only)
-        return $this->hasRole(['super_admin', 'admin', 'sous_admin', 'rh', 'direction']);
+        // Accès supervision web : tous sauf agent / conseiller (mobile only).
+        // Inclut les rôles personnalisés créés par le Super.
+        if ($this->role === null) {
+            return false;
+        }
+
+        return ! $this->isFieldUser();
     }
 
     /** Utilisateur terrain (mobile) : agent ou conseiller — données perso uniquement. */

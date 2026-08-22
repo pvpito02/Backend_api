@@ -183,8 +183,12 @@ class UserController extends Controller
 
             if ($request->user()?->isSuperAdmin() && ($request->exists('permissions') || isset($data['role_id']))) {
                 $data['permissions'] = $this->resolvePermissionsPayload($request, $roleName, $user);
-            } elseif (isset($data['role_id']) && ! in_array($roleName, ['admin', 'rh'], true)) {
-                $data['permissions'] = null;
+            } elseif (isset($data['role_id'])) {
+                $isGranular = in_array($roleName, ['admin', 'rh'], true)
+                    || ($roleName !== null && ! in_array($roleName, Role::SYSTEM_NAMES, true));
+                if (! $isGranular) {
+                    $data['permissions'] = null;
+                }
             }
 
             $user->fill($data)->save();
@@ -363,7 +367,10 @@ class UserController extends Controller
      */
     private function resolvePermissionsPayload(Request $request, ?string $roleName, ?User $existing = null): ?array
     {
-        if (! in_array($roleName, ['admin', 'rh'], true)) {
+        $isGranular = in_array($roleName, ['admin', 'rh'], true)
+            || ($roleName !== null && ! in_array($roleName, Role::SYSTEM_NAMES, true));
+
+        if (! $isGranular) {
             return null;
         }
 

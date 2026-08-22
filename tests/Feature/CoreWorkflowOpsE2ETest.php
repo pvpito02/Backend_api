@@ -15,7 +15,7 @@ use Tests\TestCase;
 
 /**
  * Couche 3 — ops admin & mobile :
- * dashboard, stats, today, acknowledge retard, holiday bloque scan,
+ * dashboard, stats, today, acknowledge retard, holiday / congé bloquent scan,
  * realtime, profil, MDP, device token.
  */
 class CoreWorkflowOpsE2ETest extends TestCase
@@ -190,6 +190,37 @@ class CoreWorkflowOpsE2ETest extends TestCase
             'longitude' => -16.8500,
             'scanned_at' => '2026-08-18T08:00:00+00:00',
         ])->assertStatus(422);
+    }
+
+    public function test_03b_approved_leave_blocks_scan(): void
+    {
+        \App\Models\AbsenceRequest::query()->create([
+            'agent_id' => $this->agent->id,
+            'type_demande' => 'CONGE',
+            'date_debut' => '2026-08-21',
+            'date_fin' => '2026-08-25',
+            'motif' => 'Congé annuel',
+            'statut' => 'APPROUVEE',
+        ]);
+
+        Sanctum::actingAs($this->agentUser);
+        $this->postJson('/api/pointages/scan', [
+            'qr_payload' => $this->site->qr_payload,
+            'type' => 'ENTREE',
+            'latitude' => 14.4167,
+            'longitude' => -16.8500,
+            'scanned_at' => '2026-08-21T08:00:00+00:00',
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['scan']);
+
+        // Jour hors période → autorisé
+        $this->postJson('/api/pointages/scan', [
+            'qr_payload' => $this->site->qr_payload,
+            'type' => 'ENTREE',
+            'latitude' => 14.4167,
+            'longitude' => -16.8500,
+            'scanned_at' => '2026-08-26T08:00:00+00:00',
+        ])->assertCreated();
     }
 
     // ─── Realtime poll ─────────────────────────────────────────────────────

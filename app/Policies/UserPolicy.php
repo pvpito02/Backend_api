@@ -43,7 +43,7 @@ class UserPolicy
 
     public function update(User $user, User $model): bool
     {
-        if ($user->id === $model->id && $user->hasRole(['super_admin', 'admin', 'rh'])) {
+        if ($user->id === $model->id && ($user->isSuperAdmin() || $user->usesGranularPermissions())) {
             return true;
         }
 

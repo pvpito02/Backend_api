@@ -91,7 +91,8 @@ class User extends Authenticatable
                 ->all();
         }
 
-        if ($this->hasRole(['admin', 'rh'])) {
+        // Admin / RH système + rôles personnalisés type RH (grille de permissions)
+        if ($this->usesGranularPermissions()) {
             return ['sous_admin', 'conseiller', 'agent'];
         }
 
@@ -108,7 +109,7 @@ class User extends Authenticatable
     }
 
     /**
-     * RH ne gère pas les comptes Super / autres RH (sauf son propre profil via /auth/profile).
+     * Super : tout. RH (système ou perso) : uniquement agent / conseiller / sous-admin.
      */
     public function canAdministerAccount(User $target): bool
     {
@@ -116,15 +117,11 @@ class User extends Authenticatable
             return true;
         }
 
-        if (! $this->hasRole(['admin', 'rh'])) {
+        if (! $this->usesGranularPermissions()) {
             return false;
         }
 
-        if ($target->hasRole(['super_admin', 'admin', 'rh'])) {
-            return false;
-        }
-
-        return true;
+        return $this->canAssignRoleName($target->role?->name);
     }
 
     /**

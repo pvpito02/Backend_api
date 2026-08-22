@@ -139,6 +139,63 @@ class RhUserGovernanceTest extends TestCase
         $this->assertContains('agent', $names);
     }
 
+    public function test_custom_rh_role_sees_same_assignable_roles(): void
+    {
+        $customRh = Role::query()->create([
+            'name' => 'administrateur_rh',
+            'display_name' => 'Administrateur RH',
+            'description' => 'Perso',
+            'is_active' => true,
+        ]);
+        Role::query()->updateOrCreate(
+            ['name' => 'conseiller'],
+            ['display_name' => 'Conseiller', 'is_active' => true],
+        );
+
+        $rh = $this->makeUser($customRh, 'rh.custom.tabs@sandiara.sn');
+        $rh->forceFill([
+            'permissions' => ['utilisateurs.manage', 'agents.manage'],
+        ])->save();
+
+        $names = collect(
+            $this->actingAs($rh, 'sanctum')
+                ->getJson('/api/roles')
+                ->assertOk()
+                ->json('data')
+        )->pluck('name')->all();
+
+        $this->assertSame(['sous_admin', 'conseiller', 'agent'], array_values(array_intersect(
+            ['sous_admin', 'conseiller', 'agent'],
+            $names,
+        )));
+        $this->assertContains('sous_admin', $names);
+        $this->assertContains('conseiller', $names);
+        $this->assertContains('agent', $names);
+        $this->assertNotContains('super_admin', $names);
+        $this->assertNotContains('admin', $names);
+        $this->assertCount(3, $names);
+
+        $this->actingAs($rh, 'sanctum')
+            ->postJson('/api/users', [
+                'name' => 'Sous-admin via RH perso',
+                'email' => 'sous.via.custom.rh@sandiara.sn',
+                'password' => 'Admin@2026!',
+                'password_confirmation' => 'Admin@2026!',
+                'role_id' => $this->sousAdminRole->id,
+            ])
+            ->assertCreated();
+
+        $this->actingAs($rh, 'sanctum')
+            ->postJson('/api/users', [
+                'name' => 'Super interdit',
+                'email' => 'super.interdit@sandiara.sn',
+                'password' => 'Admin@2026!',
+                'password_confirmation' => 'Admin@2026!',
+                'role_id' => $this->superRole->id,
+            ])
+            ->assertStatus(422);
+    }
+
     public function test_super_can_create_rh(): void
     {
         $super = $this->makeUser($this->superRole, 'super.gov2@sandiara.sn');

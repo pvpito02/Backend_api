@@ -70,7 +70,21 @@ class StoreAgentRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         if ($this->has('matricule') && is_string($this->matricule)) {
-            $this->merge(['matricule' => strtoupper(trim($this->matricule))]);
+            $normalized = trim($this->matricule);
+            $normalized = str_replace([' ', "\t", "\n", "\r"], '', $normalized);
+            $this->merge(['matricule' => strtoupper($normalized)]);
+        }
+
+        if ($this->has('email') && is_string($this->email)) {
+            $this->merge(['email' => trim(strtolower($this->email))]);
+        }
+
+        if ($this->has('telephone') && is_string($this->telephone)) {
+            $this->merge(['telephone' => trim($this->telephone)]);
+        }
+
+        if ($this->has('lieu_naissance') && is_string($this->lieu_naissance)) {
+            $this->merge(['lieu_naissance' => trim($this->lieu_naissance)]);
         }
     }
 }

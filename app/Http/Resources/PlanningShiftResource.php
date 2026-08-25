@@ -19,6 +19,8 @@ class PlanningShiftResource extends JsonResource
         return [
             'id' => $this->id,
             'departement_id' => $this->departement_id,
+            'audience' => $this->audience ?? 'SERVICE',
+            'agent_id' => $this->agent_id,
             'service' => $this->service_label ?? $this->departement?->nom,
             'service_label' => $this->service_label,
             'shift' => $this->shift_label,
@@ -34,6 +36,11 @@ class PlanningShiftResource extends JsonResource
             'status' => $statutMap[$this->statut] ?? $this->statut,
             'date_effective' => $this->date_effective?->format('Y-m-d'),
             'is_active' => (bool) $this->is_active,
+            'agent' => $this->whenLoaded('agent', fn () => $this->agent ? [
+                'id' => $this->agent->id,
+                'nom_complet' => trim(($this->agent->prenom ?? '').' '.($this->agent->nom ?? '')),
+                'matricule' => $this->agent->matricule,
+            ] : null),
             'departement' => $this->whenLoaded('departement', fn () => $this->departement ? [
                 'id' => $this->departement->id,
                 'code' => $this->departement->code,

@@ -16,6 +16,8 @@ class StorePlanningShiftRequest extends FormRequest
     {
         return [
             'departement_id' => ['nullable', 'integer', 'exists:departements,id'],
+            'audience' => ['nullable', Rule::in(['SERVICE', 'CONSEILLERS'])],
+            'agent_id' => ['nullable', 'integer', 'exists:agents,id'],
             'service_label' => ['nullable', 'string', 'max:150'],
             'shift_start' => ['required', 'date_format:H:i'],
             'shift_end' => ['required', 'date_format:H:i', 'after:shift_start'],
@@ -31,6 +33,14 @@ class StorePlanningShiftRequest extends FormRequest
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
+            $audience = strtoupper((string) ($this->input('audience') ?? 'SERVICE'));
+            if ($audience === 'CONSEILLERS') {
+                if (! $this->filled('agent_id')) {
+                    $validator->errors()->add('agent_id', 'Sélectionnez le conseiller pour ce planning.');
+                }
+
+                return;
+            }
             if (! $this->filled('departement_id') && ! $this->filled('service_label')) {
                 $validator->errors()->add('service_label', 'Indiquez un département ou un libellé de service.');
             }

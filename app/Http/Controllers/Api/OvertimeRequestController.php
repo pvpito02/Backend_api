@@ -7,8 +7,8 @@ use App\Http\Requests\OvertimeRequests\DecideOvertimeRequestRequest;
 use App\Http\Requests\OvertimeRequests\StoreOvertimeRequestRequest;
 use App\Http\Requests\OvertimeRequests\UpdateOvertimeRequestRequest;
 use App\Http\Resources\OvertimeRequestResource;
+use App\Models\AppNotification;
 use App\Models\OvertimeRequest;
-use App\Services\AuditLogger;
 use App\Services\NotificationService;
 use App\Services\RealtimePublisher;
 use Illuminate\Http\JsonResponse;
@@ -19,7 +19,6 @@ class OvertimeRequestController extends Controller
 {
     public function __construct(
         private readonly NotificationService $notifications,
-        private readonly AuditLogger $audit,
         private readonly RealtimePublisher $realtime,
     ) {}
 
@@ -29,11 +28,15 @@ class OvertimeRequestController extends Controller
 
         $query = OvertimeRequest::query()->with(['agent', 'approbateur'])->latest('id');
 
-        if ($request->user()->hasRole('agent')) {
+        $tokenName = $request->user()->currentAccessToken()?->name;
+        if ($request->user()->isFieldUser()
+            || $request->user()->shouldScopeToOwnAgent($tokenName)) {
             $query->where('agent_id', $request->user()->agent?->id);
         }
 
-        if ($request->filled('agent_id') && ! $request->user()->hasRole('agent')) {
+        if ($request->filled('agent_id')
+            && ! $request->user()->isFieldUser()
+            && ! $request->user()->shouldScopeToOwnAgent($tokenName)) {
             $query->where('agent_id', $request->integer('agent_id'));
         }
 
@@ -50,12 +53,27 @@ class OvertimeRequestController extends Controller
     {
         $this->authorize('create', OvertimeRequest::class);
 
-        $agentId = $request->user()->hasRole('agent')
-            ? $request->user()->agent?->id
-            : ($request->integer('agent_id') ?: null);
+        $actor = $request->user();
+        $tokenName = strtolower((string) $actor->currentAccessToken()?->name);
+        $isMobile = str_contains($tokenName, 'mobile') || str_contains($tokenName, 'pointage_mobile');
+
+        if ($actor->isFieldUser()) {
+            $agentId = $actor->agent?->id;
+        } elseif ($request->filled('agent_id')) {
+            $agentId = $request->integer('agent_id');
+        } elseif ($isMobile && $actor->agent) {
+            $agentId = $actor->agent->id;
+        } else {
+            $agentId = $actor->agent?->id;
+        }
 
         if (! $agentId) {
             return response()->json(['message' => 'agent_id requis.'], 422);
+        }
+
+        if ($actor->hasRole('sous_admin')
+            && (int) $agentId !== (int) $actor->agent?->id) {
+            return response()->json(['message' => 'Vous ne pouvez soumettre une demande HS que pour votre propre fiche.'], 403);
         }
 
         $overtime = OvertimeRequest::query()->create([
@@ -66,13 +84,13 @@ class OvertimeRequestController extends Controller
             'statut' => 'EN_ATTENTE',
         ])->load(['agent.user', 'approbateur']);
 
-        $createdByAgent = $request->user()->hasRole('agent');
+        $isOwnRequest = $actor->agent?->id && (int) $actor->agent->id === (int) $agentId;
         $dateLabel = $overtime->date_travail->format('d/m/Y');
         $heuresLabel = rtrim(rtrim(number_format((float) $overtime->heures_sup, 2, ',', ' '), '0'), ',');
 
-        if ($createdByAgent) {
+        if ($isOwnRequest || $actor->isFieldUser()) {
             $this->notifications->notifyMany(
-                $this->notifications->adminStaffUsers(),
+                $this->notifications->recipientsForNewRequest($actor, (int) $agentId),
                 'Heures supplémentaires',
                 "Nouvelle demande HS ({$heuresLabel} h) pour le {$dateLabel}.",
                 'confirmation',
@@ -80,9 +98,10 @@ class OvertimeRequestController extends Controller
                 'OvertimeRequest',
                 $overtime->id,
                 playSound: true,
+                channel: AppNotification::CHANNEL_WEB,
             );
         } elseif ($overtime->agent?->user) {
-            // Admin désigne un agent → l’agent est notifié.
+            // Admin désigne un autre agent → l’agent est notifié.
             $motif = trim((string) $overtime->motif);
             $motifHint = $motif !== '' ? " Motif : {$motif}." : '';
             $this->notifications->notifyUser(
@@ -96,8 +115,6 @@ class OvertimeRequestController extends Controller
                 playSound: true,
             );
         }
-
-        $this->audit->log('overtime.create', $overtime);
 
         $this->realtime->publishForAdminAndAgent('overtime.created', [
             'resource' => 'overtime',
@@ -127,8 +144,6 @@ class OvertimeRequestController extends Controller
         $this->authorize('update', $overtimeRequest);
 
         $overtimeRequest->fill($request->validated())->save();
-
-        $this->audit->log('overtime.update', $overtimeRequest);
 
         $fresh = $overtimeRequest->fresh()->load(['agent', 'approbateur']);
 
@@ -176,7 +191,28 @@ class OvertimeRequestController extends Controller
             );
         }
 
-        $this->audit->log('overtime.decide', $overtimeRequest, ['decision' => $decision]);
+        $actor = $request->user();
+        $agentUser = $overtimeRequest->agent?->user;
+        $agentName = $overtimeRequest->agent?->nom_complet ?: 'Agent';
+        $dateLabel = $overtimeRequest->date_travail->format('d/m/Y');
+        $decisionLabel = $decision === 'APPROUVEE' ? 'Approuvées' : 'Refusées';
+        $peers = $this->notifications->adminStaffUsers($actor)
+            ->reject(fn ($u) => $agentUser !== null && (int) $u->id === (int) $agentUser->id)
+            ->values();
+
+        if ($peers->isNotEmpty()) {
+            $this->notifications->notifyMany(
+                $peers,
+                "HS traitées par {$actor->name}",
+                "{$decisionLabel} · {$agentName} · {$dateLabel}.",
+                'traitement',
+                'heures_sup',
+                'OvertimeRequest',
+                $overtimeRequest->id,
+                playSound: true,
+                channel: AppNotification::CHANNEL_WEB,
+            );
+        }
 
         $fresh = $overtimeRequest->fresh()->load(['agent', 'approbateur']);
 
@@ -207,7 +243,6 @@ class OvertimeRequestController extends Controller
         ];
         $agentId = (int) $overtimeRequest->agent_id;
 
-        $this->audit->log('overtime.delete', $overtimeRequest);
         $overtimeRequest->delete();
 
         $this->realtime->publishForAdminAndAgent('overtime.deleted', $payload, $agentId);

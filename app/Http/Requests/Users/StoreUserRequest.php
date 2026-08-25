@@ -20,7 +20,16 @@ class StoreUserRequest extends FormRequest
             'email' => ['required', 'email', 'max:191', 'unique:users,email'],
             'phone' => ['nullable', 'string', 'max:30'],
             'password' => ['required', 'string', 'confirmed', new StrongPassword],
-            'role_id' => ['required', 'integer', 'exists:roles,id'],
+            'role_id' => [
+                'required',
+                'integer',
+                Rule::exists('roles', 'id')->where(function ($query) {
+                    $allowed = $this->user()?->assignableRoleNames() ?? [];
+                    $query->whereIn('name', $allowed);
+                }),
+            ],
+            'permissions' => ['sometimes', 'nullable', 'array'],
+            'permissions.*' => ['string', Rule::in(\App\Support\StaffPermissions::keys())],
             'avatar_url' => ['nullable', 'string', 'max:255'],
             'is_active' => ['sometimes', 'boolean'],
             // Lier un agent RH déjà créé (sans compte) — pas de doublon
@@ -30,13 +39,7 @@ class StoreUserRequest extends FormRequest
                 'exists:agents,id',
                 Rule::requiredIf(fn () => $this->isAgentRole()),
             ],
-            'matricule' => [
-                'nullable',
-                'string',
-                'max:30',
-                Rule::unique('agents', 'matricule')->ignore($this->integer('agent_id')),
-                Rule::requiredIf(fn () => $this->isAgentRole() && ! $this->filled('agent_id')),
-            ],
+            'matricule' => ['prohibited'],
             'prenom' => ['nullable', 'string', 'max:100'],
             'nom' => ['nullable', 'string', 'max:100'],
             'poste' => ['nullable', 'string', 'max:150'],
@@ -48,11 +51,10 @@ class StoreUserRequest extends FormRequest
     {
         return [
             'email.unique' => 'Cet email est déjà utilisé.',
-            'role_id.exists' => 'Le rôle sélectionné est invalide.',
+            'role_id.exists' => 'Vous n’êtes pas autorisé à assigner ce rôle.',
             'agent_id.required' => 'Sélectionnez un agent existant sans compte.',
             'agent_id.exists' => 'Agent introuvable.',
-            'matricule.required' => 'Le matricule est obligatoire pour un compte agent.',
-            'matricule.unique' => 'Ce matricule existe déjà.',
+            'matricule.prohibited' => 'Le matricule est généré automatiquement.',
             'password.confirmed' => 'La confirmation du mot de passe ne correspond pas.',
         ];
     }

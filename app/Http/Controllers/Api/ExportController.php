@@ -13,7 +13,11 @@ class ExportController extends Controller
 {
     public function pointages(Request $request): StreamedResponse
     {
-        abort_unless($request->user()?->isAdminStaff(), 403, 'Accès non autorisé.');
+        abort_unless(
+            $request->user()?->staffCan('rapports.export') || $request->user()?->hasRole('sous_admin'),
+            403,
+            'Accès non autorisé.'
+        );
 
         $query = Pointage::query()->with(['agent.departement', 'site'])->latest('date_pointage')->latest('heure_pointage');
 
@@ -52,7 +56,11 @@ class ExportController extends Controller
 
     public function retards(Request $request): StreamedResponse
     {
-        abort_unless($request->user()?->isAdminStaff(), 403, 'Accès non autorisé.');
+        abort_unless(
+            $request->user()?->staffCan('rapports.export') || $request->user()?->hasRole('sous_admin'),
+            403,
+            'Accès non autorisé.'
+        );
 
         $query = Pointage::query()
             ->with(['agent.departement'])
@@ -68,6 +76,9 @@ class ExportController extends Controller
         }
         if ($request->filled('to')) {
             $query->whereDate('date_pointage', '<=', $request->string('to'));
+        }
+        if ($request->filled('agent_id')) {
+            $query->where('agent_id', $request->integer('agent_id'));
         }
 
         return $this->csvDownload('retards.csv', [
@@ -89,7 +100,11 @@ class ExportController extends Controller
 
     public function agents(Request $request): StreamedResponse
     {
-        abort_unless($request->user()?->isAdminStaff(), 403, 'Accès non autorisé.');
+        abort_unless(
+            $request->user()?->staffCan('rapports.export') || $request->user()?->hasRole('sous_admin'),
+            403,
+            'Accès non autorisé.'
+        );
 
         $query = Agent::query()->with('departement')->orderBy('nom');
 
@@ -118,18 +133,26 @@ class ExportController extends Controller
 
     public function demandes(Request $request): StreamedResponse
     {
-        abort_unless($request->user()?->isAdminStaff(), 403, 'Accès non autorisé.');
+        abort_unless(
+            $request->user()?->staffCan('rapports.export') || $request->user()?->hasRole('sous_admin'),
+            403,
+            'Accès non autorisé.'
+        );
 
         $query = AbsenceRequest::query()->with('agent')->latest('id');
 
         if ($request->filled('statut')) {
             $query->where('statut', $request->string('statut'));
         }
+        // Période métier = dates de la demande (pas created_at)
         if ($request->filled('from')) {
-            $query->whereDate('created_at', '>=', $request->string('from'));
+            $query->whereDate('date_debut', '>=', $request->string('from'));
         }
         if ($request->filled('to')) {
-            $query->whereDate('created_at', '<=', $request->string('to'));
+            $query->whereDate('date_debut', '<=', $request->string('to'));
+        }
+        if ($request->filled('agent_id')) {
+            $query->where('agent_id', $request->integer('agent_id'));
         }
 
         return $this->csvDownload('demandes.csv', [

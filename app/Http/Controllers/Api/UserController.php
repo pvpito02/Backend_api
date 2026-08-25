@@ -10,7 +10,9 @@ use App\Http\Resources\UserResource;
 use App\Models\Agent;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\MatriculeGenerator;
 use App\Services\RealtimePublisher;
+use App\Services\StaffPointageProfileService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -19,13 +21,22 @@ use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
 {
-    public function __construct(private readonly RealtimePublisher $realtime) {}
+    public function __construct(
+        private readonly RealtimePublisher $realtime,
+        private readonly MatriculeGenerator $matricules,
+        private readonly StaffPointageProfileService $staffProfiles,
+    ) {}
 
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorize('viewAny', User::class);
 
         $query = User::query()->with(['role', 'agent.departement'])->latest('id');
+
+        // RH / sous-admin : masquer les comptes Super (gouvernance)
+        if (! $request->user()?->isSuperAdmin()) {
+            $query->whereHas('role', fn ($q) => $q->where('name', '!=', 'super_admin'));
+        }
 
         $query->withCount([
             'tokens as active_sessions_count' => function ($q) {
@@ -66,9 +77,10 @@ class UserController extends Controller
 
             $data['is_active'] = $data['is_active'] ?? true;
 
-            $user = User::query()->create($data);
+            $roleName = Role::query()->whereKey($data['role_id'])->value('name');
+            $data['permissions'] = $this->resolvePermissionsPayload($request, $roleName);
 
-            $roleName = Role::query()->whereKey($user->role_id)->value('name');
+            $user = User::query()->create($data);
 
             if ($roleName === 'agent') {
                 $agentId = $request->integer('agent_id');
@@ -110,20 +122,30 @@ class UserController extends Controller
                     'is_active' => true,
                 ]);
 
-                if ($request->filled('matricule')) {
-                    $agent->matricule = $request->string('matricule')->toString();
-                }
-
                 $agent->user_id = $user->id;
                 $agent->save();
+            } elseif (StaffPointageProfileService::isStaffRole($roleName)) {
+                $names = preg_split('/\s+/', trim((string) $request->input('name', '')), 2) ?: [];
+                $this->staffProfiles->ensureFor($user, [
+                    'prenom' => $request->filled('prenom')
+                        ? $request->string('prenom')->toString()
+                        : ($names[0] ?? null),
+                    'nom' => $request->filled('nom')
+                        ? $request->string('nom')->toString()
+                        : ($names[1] ?? null),
+                    'poste' => $request->input('poste'),
+                    'departement_id' => $request->filled('departement_id')
+                        ? $request->integer('departement_id')
+                        : null,
+                ]);
             }
 
-            return $user->load(['role', 'agent.departement']);
+            return $user->load(['role', 'agent.departement', 'agent.qrCodes']);
         });
 
         $this->publishUserEvent('user.created', $user);
         if ($user->agent) {
-            $this->publishAgentEvent('agent.updated', $user->agent);
+            $this->publishAgentEvent('agent.created', $user->agent);
         }
 
         return response()->json([
@@ -156,10 +178,22 @@ class UserController extends Controller
                 $data['password'] = $request->string('password')->toString();
             }
 
-            $user->fill($data)->save();
-
             $roleId = $data['role_id'] ?? $user->role_id;
             $roleName = Role::query()->whereKey($roleId)->value('name');
+
+            if ($request->user()?->isSuperAdmin() && ($request->exists('permissions') || isset($data['role_id']))) {
+                $data['permissions'] = $this->resolvePermissionsPayload($request, $roleName, $user);
+            } elseif (isset($data['role_id'])) {
+                $isGranular = in_array($roleName, ['admin', 'rh'], true)
+                    || ($roleName !== null && ! in_array($roleName, Role::SYSTEM_NAMES, true));
+                if (! $isGranular) {
+                    $data['permissions'] = null;
+                }
+            }
+
+            $user->fill($data)->save();
+
+            $roleName = Role::query()->whereKey($user->role_id)->value('name');
 
             if ($roleName === 'agent') {
                 $agentPayload = [
@@ -172,9 +206,6 @@ class UserController extends Controller
                 }
                 if ($request->filled('nom')) {
                     $agentPayload['nom'] = $request->string('nom')->toString();
-                }
-                if ($request->filled('matricule')) {
-                    $agentPayload['matricule'] = $request->string('matricule')->toString();
                 }
                 if ($request->exists('poste')) {
                     $agentPayload['poste'] = $request->input('poste');
@@ -190,9 +221,12 @@ class UserController extends Controller
                 if ($agent) {
                     $agent->fill($agentPayload)->save();
                 } else {
+                    $deptId = isset($agentPayload['departement_id'])
+                        ? (int) $agentPayload['departement_id']
+                        : null;
                     Agent::query()->create(array_merge([
                         'user_id' => $user->id,
-                        'matricule' => $request->string('matricule')->toString() ?: ('EMP'.$user->id),
+                        'matricule' => $this->matricules->generate($deptId),
                         'prenom' => $request->string('prenom')->toString() ?: explode(' ', $user->name)[0],
                         'nom' => $request->string('nom')->toString() ?: $user->name,
                         'statut' => 'Actif',
@@ -200,11 +234,25 @@ class UserController extends Controller
                         'photo_url' => $request->input('avatar_url'),
                     ], $agentPayload));
                 }
+            } elseif (StaffPointageProfileService::isStaffRole($roleName)) {
+                $names = preg_split('/\s+/', trim((string) $user->name), 2) ?: [];
+                $this->staffProfiles->ensureFor($user->fresh(['role', 'agent']), [
+                    'prenom' => $request->filled('prenom')
+                        ? $request->string('prenom')->toString()
+                        : ($names[0] ?? null),
+                    'nom' => $request->filled('nom')
+                        ? $request->string('nom')->toString()
+                        : ($names[1] ?? null),
+                    'poste' => $request->input('poste'),
+                    'departement_id' => $request->exists('departement_id')
+                        ? $request->input('departement_id')
+                        : ($user->agent?->departement_id),
+                ]);
             } elseif ($request->filled('avatar_url') && $user->agent) {
                 $user->agent->forceFill(['photo_url' => $request->input('avatar_url')])->save();
             }
 
-            return $user->load(['role', 'agent.departement']);
+            return $user->load(['role', 'agent.departement', 'agent.qrCodes']);
         });
 
         $this->publishUserEvent('user.updated', $user);
@@ -312,5 +360,29 @@ class UserController extends Controller
             'statut' => $agent->statut,
             'departement_id' => $agent->departement_id,
         ], $extra), (int) $agent->id);
+    }
+
+    /**
+     * @return list<string>|null
+     */
+    private function resolvePermissionsPayload(Request $request, ?string $roleName, ?User $existing = null): ?array
+    {
+        $isGranular = in_array($roleName, ['admin', 'rh'], true)
+            || ($roleName !== null && ! in_array($roleName, Role::SYSTEM_NAMES, true));
+
+        if (! $isGranular) {
+            return null;
+        }
+
+        $actor = $request->user();
+        if ($actor?->isSuperAdmin() && $request->exists('permissions')) {
+            return \App\Support\StaffPermissions::sanitize($request->input('permissions'));
+        }
+
+        if ($existing && is_array($existing->permissions) && $existing->permissions !== []) {
+            return \App\Support\StaffPermissions::sanitize($existing->permissions);
+        }
+
+        return \App\Support\StaffPermissions::defaults();
     }
 }

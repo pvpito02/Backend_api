@@ -24,14 +24,8 @@ class UpdateAgentRequest extends FormRequest
             : $routeAgent;
 
         return [
-            'matricule' => [
-                'sometimes',
-                'required',
-                'string',
-                'max:30',
-                'regex:/^[A-Z0-9_-]+$/i',
-                Rule::unique('agents', 'matricule')->ignore($agentId),
-            ],
+            // Matricule immutable après création (généré automatiquement).
+            'matricule' => ['prohibited'],
             'prenom' => ['sometimes', 'required', 'string', 'max:100'],
             'nom' => ['sometimes', 'required', 'string', 'max:100'],
             'sexe' => ['nullable', Rule::in(['M', 'F'])],
@@ -71,17 +65,10 @@ class UpdateAgentRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'matricule.unique' => 'Ce matricule existe déjà.',
+            'matricule.prohibited' => 'Le matricule ne peut pas être modifié.',
             'supervisor_id.not_in' => 'Un agent ne peut pas être son propre superviseur.',
             'email.unique' => 'Cet email agent est déjà utilisé.',
             'statut.in' => 'Statut invalide (Actif, Inactif, Retraité, Suspendu).',
         ];
-    }
-
-    protected function prepareForValidation(): void
-    {
-        if ($this->has('matricule') && is_string($this->matricule)) {
-            $this->merge(['matricule' => strtoupper(trim($this->matricule))]);
-        }
     }
 }

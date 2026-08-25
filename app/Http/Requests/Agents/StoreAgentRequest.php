@@ -15,13 +15,8 @@ class StoreAgentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'matricule' => [
-                'required',
-                'string',
-                'max:30',
-                'regex:/^[A-Z0-9_-]+$/i',
-                'unique:agents,matricule',
-            ],
+            // Matricule généré côté serveur (jamais saisi).
+            'matricule' => ['prohibited'],
             'prenom' => ['required', 'string', 'max:100'],
             'nom' => ['required', 'string', 'max:100'],
             'sexe' => ['required', Rule::in(['M', 'F'])],
@@ -30,7 +25,7 @@ class StoreAgentRequest extends FormRequest
             'date_entree' => ['nullable', 'date', 'before_or_equal:today'],
             'date_fin_contrat' => ['nullable', 'date', 'after_or_equal:date_entree'],
             'poste' => ['nullable', 'string', 'max:150'],
-            'departement_id' => ['nullable', 'integer', 'exists:departements,id'],
+            'departement_id' => ['required', 'integer', 'exists:departements,id'],
             'supervisor_id' => ['nullable', 'integer', 'exists:agents,id', 'different:id'],
             'email' => ['nullable', 'email', 'max:191', 'unique:agents,email'],
             'telephone' => ['nullable', 'string', 'max:30'],
@@ -49,8 +44,7 @@ class StoreAgentRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'matricule.required' => 'Le matricule est obligatoire.',
-            'matricule.unique' => 'Ce matricule existe déjà.',
+            'matricule.prohibited' => 'Le matricule est généré automatiquement.',
             'prenom.required' => 'Le prénom est obligatoire.',
             'nom.required' => 'Le nom est obligatoire.',
             'sexe.in' => 'Le sexe doit être M ou F.',
@@ -58,6 +52,7 @@ class StoreAgentRequest extends FormRequest
             'date_naissance.before' => 'La date de naissance doit être antérieure à aujourd’hui.',
             'date_naissance.required' => 'La date de naissance est obligatoire (calcul de l’âge).',
             'lieu_naissance.required' => 'Le lieu de naissance est obligatoire.',
+            'departement_id.required' => 'Le service est obligatoire (utilisé pour le matricule).',
             'departement_id.exists' => 'Le département sélectionné est invalide.',
             'supervisor_id.exists' => 'Le superviseur sélectionné est invalide.',
             'email.unique' => 'Cet email agent est déjà utilisé.',
@@ -66,6 +61,7 @@ class StoreAgentRequest extends FormRequest
             'statut.in' => 'Statut invalide (Actif, Inactif, Retraité, Suspendu).',
         ];
     }
+<<<<<<< HEAD
 
     protected function prepareForValidation(): void
     {
@@ -87,4 +83,6 @@ class StoreAgentRequest extends FormRequest
             $this->merge(['lieu_naissance' => trim($this->lieu_naissance)]);
         }
     }
+=======
+>>>>>>> b0f45d3b959af0c53309980ca1b14e94122ffc0f
 }

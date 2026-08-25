@@ -9,7 +9,8 @@ class RemoteConfigPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin', 'sous_admin', 'agent']);
+        return $user->staffCan('parametres.manage')
+            || $user->hasRole(['sous_admin', 'conseiller', 'agent']);
     }
 
     public function view(User $user, RemoteConfig $remoteConfig): bool
@@ -19,16 +20,16 @@ class RemoteConfigPolicy
 
     public function create(User $user): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->staffCan('parametres.manage');
     }
 
     public function update(User $user, ?RemoteConfig $remoteConfig = null): bool
     {
-        return $user->hasRole(['super_admin', 'admin']);
+        return $user->staffCan('parametres.manage');
     }
 
     public function delete(User $user, RemoteConfig $remoteConfig): bool
     {
-        return $user->hasRole(['super_admin']);
+        return $user->hasRole('super_admin');
     }
 }

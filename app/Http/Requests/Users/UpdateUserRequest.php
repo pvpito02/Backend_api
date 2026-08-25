@@ -35,16 +35,20 @@ class UpdateUserRequest extends FormRequest
             ],
             'phone' => ['nullable', 'string', 'max:30'],
             'password' => ['nullable', 'string', 'confirmed', new StrongPassword],
-            'role_id' => ['sometimes', 'required', 'integer', 'exists:roles,id'],
+            'role_id' => [
+                'sometimes',
+                'required',
+                'integer',
+                Rule::exists('roles', 'id')->where(function ($query) {
+                    $allowed = $this->user()?->assignableRoleNames() ?? [];
+                    $query->whereIn('name', $allowed);
+                }),
+            ],
+            'permissions' => ['sometimes', 'nullable', 'array'],
+            'permissions.*' => ['string', Rule::in(\App\Support\StaffPermissions::keys())],
             'avatar_url' => ['nullable', 'string', 'max:255'],
             'is_active' => ['sometimes', 'boolean'],
-            'matricule' => [
-                'nullable',
-                'string',
-                'max:30',
-                Rule::unique('agents', 'matricule')->ignore($agentId),
-                Rule::requiredIf(fn () => $this->isAgentRole()),
-            ],
+            'matricule' => ['prohibited'],
             'prenom' => ['nullable', 'string', 'max:100', Rule::requiredIf(fn () => $this->isAgentRole())],
             'nom' => ['nullable', 'string', 'max:100', Rule::requiredIf(fn () => $this->isAgentRole())],
             'poste' => ['nullable', 'string', 'max:150'],
@@ -56,9 +60,9 @@ class UpdateUserRequest extends FormRequest
     {
         return [
             'email.unique' => 'Cet email est déjà utilisé.',
+            'role_id.exists' => 'Vous n’êtes pas autorisé à assigner ce rôle.',
             'password.confirmed' => 'La confirmation du mot de passe ne correspond pas.',
-            'matricule.unique' => 'Ce matricule existe déjà.',
-            'matricule.required' => 'Le matricule est obligatoire pour un compte agent.',
+            'matricule.prohibited' => 'Le matricule ne peut pas être modifié.',
         ];
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AbsenceRequest;
 use App\Models\Agent;
 use App\Models\Pointage;
 use App\Models\Site;
@@ -42,6 +43,7 @@ class PointageService
         $pendingSync = (bool) ($payload['pending_sync'] ?? false);
 
         $this->assertWorkingDay($now);
+        $this->assertNotOnApprovedLeave($agent, $now);
         $this->assertCooldown($agent, $now);
 
         $site = $this->resolveSite(
@@ -232,8 +234,45 @@ class PointageService
         }
     }
 
+    /**
+     * Types de demandes qui dispensent de pointer (journée couverte).
+     *
+     * @var list<string>
+     */
+    public const LEAVE_TYPES = ['CONGE', 'PERMISSION', 'ABSENCE', 'MALADIE'];
+
+    public function assertNotOnApprovedLeave(Agent $agent, Carbon $at): void
+    {
+        $date = $at->toDateString();
+
+        $onLeave = AbsenceRequest::query()
+            ->where('agent_id', $agent->id)
+            ->where('statut', 'APPROUVEE')
+            ->whereIn('type_demande', self::LEAVE_TYPES)
+            ->whereDate('date_debut', '<=', $date)
+            ->whereDate('date_fin', '>=', $date)
+            ->exists();
+
+        if ($onLeave) {
+            throw ValidationException::withMessages([
+                'scan' => ['Pointage non requis : congé, permission ou absence approuvée ce jour.'],
+            ]);
+        }
+    }
+
     public function assertWorkingDay(Carbon $at): void
     {
+        $isHoliday = DB::table('holidays')
+            ->whereDate('date_holiday', $at->toDateString())
+            ->where('is_active', 1)
+            ->exists();
+
+        if ($isHoliday) {
+            throw ValidationException::withMessages([
+                'scan' => ['Jour férié : pointage non requis / bloqué.'],
+            ]);
+        }
+
         $schedule = WorkSchedule::activeDefault();
         if (! $schedule) {
             return;
@@ -250,17 +289,6 @@ class PointageService
         if (! $schedule->work_saturday && $dow === Carbon::SATURDAY) {
             throw ValidationException::withMessages([
                 'scan' => ['Pointage non autorisé le samedi.'],
-            ]);
-        }
-
-        $isHoliday = DB::table('holidays')
-            ->where('date_holiday', $at->toDateString())
-            ->where('is_active', 1)
-            ->exists();
-
-        if ($isHoliday) {
-            throw ValidationException::withMessages([
-                'scan' => ['Jour férié : pointage non requis / bloqué.'],
             ]);
         }
     }

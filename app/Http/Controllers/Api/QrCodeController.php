@@ -23,13 +23,14 @@ class QrCodeController extends Controller
     {
         $this->authorize('viewAny', QrCode::class);
 
-        $query = QrCode::query()->with('agent')->latest('id');
+        $query = QrCode::query()->with('agent.user')->latest('id');
 
-        if ($request->user()->hasRole('agent')) {
+        $tokenName = $request->user()->currentAccessToken()?->name;
+        if ($request->user()->shouldScopeToOwnAgent($tokenName)) {
             $query->where('agent_id', $request->user()->agent?->id);
         }
 
-        if ($request->filled('agent_id') && ! $request->user()->hasRole('agent')) {
+        if ($request->filled('agent_id') && ! $request->user()->shouldScopeToOwnAgent($tokenName)) {
             $query->where('agent_id', $request->integer('agent_id'));
         }
 
@@ -66,7 +67,7 @@ class QrCodeController extends Controller
                 'issued_at' => now(),
                 'expires_at' => $request->input('expires_at'),
                 'statut' => 'ACTIF',
-            ])->load('agent');
+            ])->load('agent.user');
         });
 
         $this->realtime->publishForAdminAndAgent('qr.created', [
@@ -90,7 +91,7 @@ class QrCodeController extends Controller
         $qrCode->refreshExpiredStatus();
 
         return response()->json([
-            'qr_code' => new QrCodeResource($qrCode->load('agent')),
+            'qr_code' => new QrCodeResource($qrCode->load('agent.user')),
         ]);
     }
 
@@ -99,7 +100,7 @@ class QrCodeController extends Controller
         $this->authorize('update', $qrCode);
 
         $qrCode->fill($request->validated())->save();
-        $fresh = $qrCode->fresh()->load('agent');
+        $fresh = $qrCode->fresh()->load('agent.user');
 
         $this->realtime->publishForAdminAndAgent('qr.updated', [
             'resource' => 'qr',
@@ -120,7 +121,7 @@ class QrCodeController extends Controller
         $this->authorize('revoke', $qrCode);
 
         $qrCode->update(['statut' => 'REVOQUE']);
-        $fresh = $qrCode->fresh()->load('agent');
+        $fresh = $qrCode->fresh()->load('agent.user');
 
         $this->realtime->publishForAdminAndAgent('qr.updated', [
             'resource' => 'qr',
@@ -156,7 +157,7 @@ class QrCodeController extends Controller
         return response()->json(['message' => 'QR supprimé.']);
     }
 
-    /** QR actif de l’agent connecté (mobile). */
+    /** QR actif de l'agent connecté (mobile). */
     public function mine(Request $request): JsonResponse
     {
         $agent = $request->user()->agent;
@@ -180,7 +181,7 @@ class QrCodeController extends Controller
         $this->authorize('view', $qr);
 
         return response()->json([
-            'qr_code' => new QrCodeResource($qr->load('agent')),
+            'qr_code' => new QrCodeResource($qr->load('agent.user')),
         ]);
     }
 }

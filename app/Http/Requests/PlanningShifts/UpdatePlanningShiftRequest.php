@@ -16,6 +16,8 @@ class UpdatePlanningShiftRequest extends FormRequest
     {
         return [
             'departement_id' => ['nullable', 'integer', 'exists:departements,id'],
+            'audience' => ['nullable', Rule::in(['SERVICE', 'CONSEILLERS'])],
+            'agent_id' => ['nullable', 'integer', 'exists:agents,id'],
             'service_label' => ['nullable', 'string', 'max:150'],
             'shift_start' => ['sometimes', 'required', 'date_format:H:i'],
             'shift_end' => ['sometimes', 'required', 'date_format:H:i'],

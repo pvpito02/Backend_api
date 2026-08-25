@@ -20,6 +20,7 @@ class StoreRetraiteRequest extends FormRequest
             'motif' => ['nullable', 'string', 'max:2000'],
             'statut' => ['sometimes', Rule::in(['EN_COURS', 'VALIDE', 'REJETE', 'TERMINE'])],
             'montant_pension' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'mark_agent_retraite' => ['sometimes', 'boolean'],
         ];
     }
 

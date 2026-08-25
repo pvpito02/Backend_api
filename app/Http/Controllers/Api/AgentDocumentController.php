@@ -8,7 +8,6 @@ use App\Http\Requests\AgentDocuments\UpdateAgentDocumentRequest;
 use App\Http\Resources\AgentDocumentResource;
 use App\Models\Agent;
 use App\Models\AgentDocument;
-use App\Services\AuditLogger;
 use App\Services\MediaService;
 use App\Support\MediaUrl;
 use Illuminate\Http\JsonResponse;
@@ -21,7 +20,6 @@ class AgentDocumentController extends Controller
 
     public function __construct(
         private readonly MediaService $media,
-        private readonly AuditLogger $audit,
     ) {}
 
     public function index(Request $request): AnonymousResourceCollection
@@ -30,11 +28,11 @@ class AgentDocumentController extends Controller
 
         $query = AgentDocument::query()->with(['agent', 'uploader'])->latest('id');
 
-        if ($request->user()->hasRole('agent')) {
+        if ($request->user()->isFieldUser()) {
             $query->where('agent_id', $request->user()->agent?->id);
         }
 
-        if ($request->filled('agent_id') && ! $request->user()->hasRole('agent')) {
+        if ($request->filled('agent_id') && ! $request->user()->isFieldUser()) {
             $query->where('agent_id', $request->integer('agent_id'));
         }
 
@@ -52,7 +50,7 @@ class AgentDocumentController extends Controller
     {
         $this->authorize('viewAny', AgentDocument::class);
 
-        if ($request->user()->hasRole('agent')) {
+        if ($request->user()->isFieldUser()) {
             return response()->json(['message' => 'Accès réservé à l’administration.'], 403);
         }
 
@@ -107,7 +105,7 @@ class AgentDocumentController extends Controller
     {
         $this->authorize('create', AgentDocument::class);
 
-        $agentId = $request->user()->hasRole('agent')
+        $agentId = $request->user()->isFieldUser()
             ? $request->user()->agent?->id
             : $request->integer('agent_id');
 
@@ -152,11 +150,6 @@ class AgentDocumentController extends Controller
             $doc->setRelation('agent', $doc->agent?->fresh() ?? Agent::query()->find($agentId));
         }
 
-        $this->audit->log('agent_document.upsert', $doc, [
-            'type' => $doc->type_document,
-            'agent_id' => $agentId,
-        ]);
-
         return response()->json([
             'message' => 'Document enregistré.',
             'document' => new AgentDocumentResource($doc),
@@ -199,8 +192,6 @@ class AgentDocumentController extends Controller
             ])->save();
         }
 
-        $this->audit->log('agent_document.update', $agentDocument);
-
         return response()->json([
             'message' => 'Document mis à jour.',
             'document' => new AgentDocumentResource($agentDocument->fresh()->load(['agent', 'uploader'])),
@@ -214,10 +205,6 @@ class AgentDocumentController extends Controller
         if ($agentDocument->file_path) {
             $this->media->delete($agentDocument->file_path);
         }
-
-        $this->audit->log('agent_document.delete', $agentDocument, [
-            'type' => $agentDocument->type_document,
-        ]);
 
         $agentDocument->delete();
 

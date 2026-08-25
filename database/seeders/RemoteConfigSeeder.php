@@ -48,7 +48,7 @@ class RemoteConfigSeeder extends Seeder
             ['notif_retards', '1', 'Notifier les retards'],
             ['notif_daily_report', '1', 'Rapport journalier RH'],
             ['notif_absence', '1', 'Alerte absence'],
-            ['notif_reminder_scan', '1', 'Rappel pointage'],
+            ['notif_reminder_scan', '1', 'Rappel pointage avant/après (si pas pointé)'],
             ['force_app_update', '0', 'Forcer la mise à jour mobile'],
             ['app_version', '1.0.0', 'Version minimale mobile (minAppVersion)'],
             ['demo_mode', '1', 'Mode démonstration'],

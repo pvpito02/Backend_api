@@ -7,6 +7,7 @@ use App\Http\Requests\Demandes\DecideDemandeRequest;
 use App\Http\Requests\Demandes\StoreDemandeRequest;
 use App\Http\Resources\DemandeResource;
 use App\Models\AbsenceRequest;
+use App\Models\AppNotification;
 use App\Services\DemandeService;
 use App\Services\MediaService;
 use App\Services\NotificationService;
@@ -33,7 +34,9 @@ class DemandeController extends Controller
             ->with(['agent.departement', 'approbateur'])
             ->latest('id');
 
-        if ($request->user()->hasRole('agent')) {
+        $tokenName = $request->user()->currentAccessToken()?->name;
+        if ($request->user()->isFieldUser()
+            || $request->user()->shouldScopeToOwnAgent($tokenName)) {
             $query->where('agent_id', $request->user()->agent?->id);
         }
 
@@ -45,7 +48,9 @@ class DemandeController extends Controller
             $query->where('statut', $request->string('statut'));
         }
 
-        if ($request->filled('agent_id') && ! $request->user()->hasRole('agent')) {
+        if ($request->filled('agent_id')
+            && ! $request->user()->isFieldUser()
+            && ! $request->user()->shouldScopeToOwnAgent($tokenName)) {
             $query->where('agent_id', $request->integer('agent_id'));
         }
 
@@ -70,9 +75,8 @@ class DemandeController extends Controller
     {
         $this->authorize('create', AbsenceRequest::class);
 
-        $agentId = $request->user()->hasRole('agent')
-            ? $request->user()->agent?->id
-            : $request->integer('agent_id');
+        $actor = $request->user();
+        $agentId = $this->resolveTargetAgentId($request, $actor);
 
         if (! $agentId) {
             return response()->json([
@@ -81,13 +85,19 @@ class DemandeController extends Controller
             ], 422);
         }
 
+        // Sous-admin : uniquement sa propre fiche
+        if ($actor->hasRole('sous_admin')
+            && (int) $agentId !== (int) $actor->agent?->id) {
+            return response()->json(['message' => 'Vous ne pouvez soumettre une demande que pour votre propre fiche.'], 403);
+        }
+
         $documentPath = $request->input('document_path');
         if ($request->hasFile('document')) {
             $stored = $this->mediaService->store($request->file('document'), 'demande_document');
             $documentPath = $stored['path'];
         }
 
-        $demande = DB::transaction(function () use ($request, $agentId, $documentPath) {
+        $demande = DB::transaction(function () use ($request, $actor, $agentId, $documentPath) {
             $heureDebut = $request->input('heure_debut');
             $heureFin = $request->input('heure_fin');
 
@@ -108,13 +118,14 @@ class DemandeController extends Controller
                 $demande,
                 null,
                 'EN_ATTENTE',
-                $request->user(),
+                $actor,
                 'Soumission de la demande',
             );
 
             $type = $demande->type_demande;
+            $recipients = $this->notificationService->recipientsForNewRequest($actor, (int) $agentId);
             $this->notificationService->notifyMany(
-                $this->notificationService->adminStaffUsers(),
+                $recipients,
                 "Nouvelle demande {$type}",
                 "Une demande {$type} vient d’être soumise.",
                 'confirmation',
@@ -122,6 +133,7 @@ class DemandeController extends Controller
                 'AbsenceRequest',
                 $demande->id,
                 playSound: true,
+                channel: AppNotification::CHANNEL_WEB,
             );
 
             return $demande->load(['agent.departement', 'history']);
@@ -145,18 +157,21 @@ class DemandeController extends Controller
     {
         $this->authorize('view', $demande);
 
-        // Ouverture admin → EN_COURS
+        // Ouverture par un superviseur habilité → EN_COURS
         if ($request->user()->isAdminStaff() && $demande->statut === 'EN_ATTENTE') {
-            $this->demandeService->markAsEnCours($demande, $request->user());
-            $demande->refresh();
+            $demande->loadMissing('agent.user.role');
+            if ($this->notificationService->canDecideForOwner($request->user(), $demande->agent?->user)) {
+                $this->demandeService->markAsEnCours($demande, $request->user());
+                $demande->refresh();
 
-            $this->realtime->publishForAdminAndAgent('demande.updated', [
-                'resource' => 'demande',
-                'id' => $demande->id,
-                'agent_id' => $demande->agent_id,
-                'type_demande' => $demande->type_demande,
-                'statut' => $demande->statut,
-            ], (int) $demande->agent_id);
+                $this->realtime->publishForAdminAndAgent('demande.updated', [
+                    'resource' => 'demande',
+                    'id' => $demande->id,
+                    'agent_id' => $demande->agent_id,
+                    'type_demande' => $demande->type_demande,
+                    'statut' => $demande->statut,
+                ], (int) $demande->agent_id);
+            }
         }
 
         $demande->load(['agent.departement', 'approbateur', 'history', 'lecteurAdmin']);
@@ -237,5 +252,29 @@ class DemandeController extends Controller
         $this->realtime->publishForAdminAndAgent('demande.deleted', $payload, $agentId);
 
         return response()->json(['message' => 'Demande supprimée.']);
+    }
+
+    /**
+     * Terrain / staff mobile sans agent_id → fiche liée.
+     * Web admin → agent_id obligatoire (sauf si on force la fiche perso).
+     */
+    private function resolveTargetAgentId(Request $request, $actor): ?int
+    {
+        $tokenName = strtolower((string) $actor->currentAccessToken()?->name);
+        $isMobile = str_contains($tokenName, 'mobile') || str_contains($tokenName, 'pointage_mobile');
+
+        if ($actor->isFieldUser()) {
+            return $actor->agent?->id;
+        }
+
+        if ($request->filled('agent_id')) {
+            return $request->integer('agent_id');
+        }
+
+        if ($isMobile && $actor->agent) {
+            return (int) $actor->agent->id;
+        }
+
+        return null;
     }
 }

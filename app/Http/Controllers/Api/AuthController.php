@@ -10,6 +10,7 @@ use App\Http\Resources\UserResource;
 use App\Models\Agent;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\StaffPointageProfileService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +21,10 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    public function __construct(private readonly AuditLogger $audit) {}
+    public function __construct(
+        private readonly AuditLogger $audit,
+        private readonly StaffPointageProfileService $staffProfiles,
+    ) {}
 
     public function login(LoginRequest $request): JsonResponse
     {
@@ -59,10 +63,24 @@ class AuthController extends Controller
             'last_user_agent' => Str::limit((string) $request->userAgent(), 255, ''),
         ])->save();
 
-        $this->audit->log('auth.login', $user, [
-            'ip' => $request->ip(),
-            'device_name' => $request->input('device_name'),
-        ], $user);
+        $this->audit->log(
+            'auth.login',
+            $user,
+            [
+                'ip' => $request->ip(),
+                'device_name' => $request->input('device_name'),
+            ],
+            $user,
+            AuditLogger::PERMISSION_LOGIN,
+            'Connexion · '.$user->name,
+            $request,
+        );
+
+        $user->loadMissing('role', 'agent');
+        // Staff : créer la fiche + resync photo avatar → agent.photo_url à chaque login
+        if (StaffPointageProfileService::isStaffRole($user->role?->name)) {
+            $this->staffProfiles->ensureFor($user);
+        }
 
         $deviceName = $request->string('device_name')->toString() ?: ($request->userAgent() ?: 'api-token');
         $newToken = $user->createToken($deviceName);
@@ -88,16 +106,21 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         $user = $request->user()->load(['role', 'agent.departement', 'agent.qrCodes']);
+        if (StaffPointageProfileService::isStaffRole($user->role?->name)) {
+            $this->staffProfiles->ensureFor($user);
+            $user->load(['role', 'agent.departement', 'agent.qrCodes']);
+        }
         $user->loadCount([
             'tokens as active_sessions_count' => function ($q) {
                 User::constrainActiveTokens($q);
             },
         ]);
 
-        // Touche la session courante (activité)
-        $request->user()->currentAccessToken()?->forceFill([
-            'last_used_at' => now(),
-        ])->save();
+        // Touche la session courante (activité) — ignore TransientToken / absence de PAT
+        $accessToken = $request->user()->currentAccessToken();
+        if ($accessToken instanceof \Laravel\Sanctum\PersonalAccessToken) {
+            $accessToken->forceFill(['last_used_at' => now()])->save();
+        }
 
         return response()->json([
             'user' => new UserResource($user),
@@ -109,9 +132,10 @@ class AuthController extends Controller
      */
     public function heartbeat(Request $request): JsonResponse
     {
-        $token = $request->user()->currentAccessToken();
-        if ($token) {
-            $token->forceFill(['last_used_at' => now()])->save();
+        $accessToken = $request->user()->currentAccessToken();
+        if ($accessToken instanceof \Laravel\Sanctum\PersonalAccessToken) {
+            $accessToken->last_used_at = now();
+            $accessToken->save();
         }
 
         $user = $request->user();

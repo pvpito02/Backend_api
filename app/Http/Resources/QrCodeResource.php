@@ -20,13 +20,25 @@ class QrCodeResource extends JsonResource
             'issued_at' => $this->issued_at?->toIso8601String(),
             'expires_at' => $this->expires_at?->toIso8601String(),
             'statut' => $this->statut,
-            'agent' => $this->whenLoaded('agent', fn () => $this->agent ? [
-                'id' => $this->agent->id,
-                'matricule' => $this->agent->matricule,
-                'nom_complet' => $this->agent->nom_complet,
-                'poste' => $this->agent->poste,
-                'photo_url' => MediaUrl::public($this->agent->photo_url),
-            ] : null),
+            'agent' => $this->whenLoaded('agent', function () {
+                if (! $this->agent) {
+                    return null;
+                }
+                $photo = $this->agent->photo_url;
+                if (blank($photo) && $this->agent->relationLoaded('user')) {
+                    $photo = $this->agent->user?->avatar_url;
+                } elseif (blank($photo)) {
+                    $photo = $this->agent->user?->avatar_url;
+                }
+
+                return [
+                    'id' => $this->agent->id,
+                    'matricule' => $this->agent->matricule,
+                    'nom_complet' => $this->agent->nom_complet,
+                    'poste' => $this->agent->poste,
+                    'photo_url' => MediaUrl::public($photo),
+                ];
+            }),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

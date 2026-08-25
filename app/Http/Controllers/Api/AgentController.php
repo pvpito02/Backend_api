@@ -9,6 +9,7 @@ use App\Http\Resources\AgentResource;
 use App\Models\Agent;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\MatriculeGenerator;
 use App\Services\RealtimePublisher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,7 +19,10 @@ use Illuminate\Validation\ValidationException;
 
 class AgentController extends Controller
 {
-    public function __construct(private readonly RealtimePublisher $realtime) {}
+    public function __construct(
+        private readonly RealtimePublisher $realtime,
+        private readonly MatriculeGenerator $matricules,
+    ) {}
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -45,6 +49,14 @@ class AgentController extends Controller
             $query->whereNull('user_id');
         }
 
+        // Par défaut, masquer les fiches « shadow » admin web (pas agent/conseiller terrain).
+        if (! $request->boolean('include_staff')) {
+            $query->where(function ($builder) {
+                $builder->whereNull('user_id')
+                    ->orWhereHas('user.role', fn ($r) => $r->whereIn('name', ['agent', 'conseiller']));
+            });
+        }
+
         if ($request->filled('q')) {
             $q = '%'.$request->string('q').'%';
             $query->where(function ($builder) use ($q) {
@@ -67,9 +79,13 @@ class AgentController extends Controller
         $this->authorize('create', Agent::class);
 
         $agent = DB::transaction(function () use ($request) {
-            $data = $request->safe()->except(['create_user', 'password', 'password_confirmation']);
+            $data = $request->safe()->except(['create_user', 'password', 'password_confirmation', 'matricule']);
             $data['statut'] = $data['statut'] ?? 'Actif';
             $data['is_active'] = $data['is_active'] ?? true;
+            $data['matricule'] = $this->matricules->generate(
+                isset($data['departement_id']) ? (int) $data['departement_id'] : null,
+                $data['date_entree'] ?? null,
+            );
 
             if ($request->boolean('create_user')) {
                 $roleId = Role::query()->where('name', 'agent')->value('id');

@@ -186,6 +186,136 @@ class AgentIsolationAndNotificationTest extends TestCase
         $this->assertSame([$agent->id], $ids);
     }
 
+    public function test_web_only_notifications_hidden_from_mobile_inbox(): void
+    {
+        $admin = $this->makeAdmin();
+        [$agentUser] = $this->makeAgentUser('decided@sandiara.sn', 'EMP-DEC');
+
+        /** @var NotificationService $notifications */
+        $notifications = app(NotificationService::class);
+
+        $notifications->notifyUser(
+            $admin,
+            'Nouvelle demande CONGE',
+            'À traiter sur le web.',
+            'confirmation',
+            'conge',
+            'AbsenceRequest',
+            1,
+            playSound: true,
+            channel: AppNotification::CHANNEL_WEB,
+        );
+
+        $notifications->notifyUser(
+            $admin,
+            'Demande CONGE approuvée',
+            'Votre demande personnelle a été approuvée.',
+            'approbation',
+            'conge',
+            'AbsenceRequest',
+            2,
+            playSound: true,
+            channel: AppNotification::CHANNEL_BOTH,
+        );
+
+        $mobileInbox = $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/notifications?channel=mobile')
+            ->assertOk();
+
+        $mobileTitles = collect($mobileInbox->json('data'))->pluck('title')->all();
+        $this->assertNotContains('Nouvelle demande CONGE', $mobileTitles);
+        $this->assertContains('Demande CONGE approuvée', $mobileTitles);
+
+        $webInbox = $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/notifications?channel=web')
+            ->assertOk();
+
+        $webTitles = collect($webInbox->json('data'))->pluck('title')->all();
+        $this->assertContains('Nouvelle demande CONGE', $webTitles);
+        $this->assertContains('Demande CONGE approuvée', $webTitles);
+
+        // Décision perso → visible aussi pour l’agent terrain
+        $notifications->notifyUser(
+            $agentUser,
+            'Demande PERMISSION approuvée',
+            'Votre demande a été approuvée.',
+            'approbation',
+            'permission',
+            channel: AppNotification::CHANNEL_BOTH,
+        );
+
+        $agentInbox = $this->actingAs($agentUser, 'sanctum')
+            ->getJson('/api/notifications?channel=mobile')
+            ->assertOk();
+
+        $this->assertTrue(
+            collect($agentInbox->json('data'))->contains(
+                fn ($n) => ($n['title'] ?? '') === 'Demande PERMISSION approuvée'
+            )
+        );
+    }
+
+    public function test_decide_notifies_other_admins_traite_par(): void
+    {
+        $superRole = Role::query()->create([
+            'name' => 'super_admin',
+            'display_name' => 'Super',
+            'description' => 'Test',
+            'is_active' => true,
+        ]);
+
+        $rh = $this->makeAdmin();
+        $super = User::query()->create([
+            'role_id' => $superRole->id,
+            'name' => 'Super Test',
+            'email' => 'super.iso@sandiara.sn',
+            'password' => 'Admin@2026!',
+            'is_active' => true,
+        ]);
+        [$agentUser, $agent] = $this->makeAgentUser('agent.decide@sandiara.sn', 'EMP-DEC2');
+
+        $demande = \App\Models\AbsenceRequest::query()->create([
+            'agent_id' => $agent->id,
+            'type_demande' => 'CONGE',
+            'date_debut' => now()->toDateString(),
+            'date_fin' => now()->addDays(2)->toDateString(),
+            'motif' => 'Repos famille',
+            'statut' => 'EN_ATTENTE',
+        ]);
+
+        $this->actingAs($rh, 'sanctum')
+            ->postJson("/api/demandes/{$demande->id}/decide", [
+                'decision' => 'APPROUVEE',
+            ])
+            ->assertOk();
+
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $agentUser->id,
+            'type' => 'approbation',
+        ]);
+
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $super->id,
+            'type' => 'traitement',
+            'channel' => 'web',
+        ]);
+
+        $peer = AppNotification::query()
+            ->where('user_id', $super->id)
+            ->where('type', 'traitement')
+            ->first();
+
+        $this->assertNotNull($peer);
+        $this->assertStringContainsString('traitée par', (string) $peer->title);
+        $this->assertStringContainsString($rh->name, (string) $peer->title);
+
+        // Le décideur ne reçoit pas « traité par soi »
+        $this->assertDatabaseMissing('notifications', [
+            'user_id' => $rh->id,
+            'type' => 'traitement',
+        ]);
+    }
+
     public function test_agent_cannot_list_other_agent_pointages_via_filter(): void
     {
         [$userA, $agentA] = $this->makeAgentUser('pa@sandiara.sn', 'EMP-PA');

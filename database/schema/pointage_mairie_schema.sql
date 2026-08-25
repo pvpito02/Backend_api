@@ -509,6 +509,7 @@ INSERT INTO roles (name, display_name, description) VALUES
   ('super_admin', 'Super Administrateur', 'Gère tous les comptes, paramètres et validations'),
   ('admin', 'Administrateur', 'Administration courante (RH, pointages, agents)'),
   ('sous_admin', 'Sous-administrateur', 'Droits limités — consultation et actions courantes'),
+  ('conseiller', 'Conseiller', 'Conseiller municipal — consultation et suivi des dossiers'),
   ('agent', 'Agent', 'Pointage mobile, demandes et consultation personnelle'),
   ('rh', 'RH', 'Alias historique — à mapper vers admin si besoin'),
   ('direction', 'Direction', 'Vue globale — à mapper vers admin / super_admin si besoin');
@@ -600,10 +601,3 @@ INSERT INTO holidays (libelle, date_holiday, type_holiday) VALUES
   ('Fête de la Victoire', '2026-05-01', 'FERIE'),
   ('Aïd al-Adha', '2026-05-31', 'RELIGIEUX'),
   ('Tabaski', '2026-06-06', 'RELIGIEUX');
-
-INSERT INTO planning_shifts (departement_id, service_label, shift_start, shift_end, manager_name, required_count, assigned_count, statut)
-SELECT d.id, 'État Civil', '08:00:00', '17:00:00', 'Mme Diallo', 4, 4, 'CONFIRME'
-FROM departements d WHERE d.code = 'ETAT_CIVIL'
-UNION ALL
-SELECT d.id, 'Finances', '09:00:00', '18:00:00', 'M. Ndiaye', 3, 2, 'PROVISOIRE'
-FROM departements d WHERE d.code = 'FINANCES';

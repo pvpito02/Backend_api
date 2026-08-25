@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\RetraiteController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\SanctionController;
 use App\Http\Controllers\Api\SiteController;
+use App\Http\Controllers\Api\StaffPermissionController;
 use App\Http\Controllers\Api\StatsController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\WorkScheduleController;
@@ -53,7 +54,7 @@ Route::get('/public/branding', \App\Http\Controllers\Api\PublicBrandingControlle
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
 
-    Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware(['auth:sanctum', 'audit.admin'])->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::post('/logout-all', [AuthController::class, 'logoutAll']);
@@ -63,10 +64,15 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'audit.admin'])->group(function () {
     Route::apiResource('users', UserController::class);
     Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword']);
     Route::get('/roles', [RoleController::class, 'index']);
+    Route::post('/roles', [RoleController::class, 'store']);
+    Route::get('/roles/{role}', [RoleController::class, 'show']);
+    Route::patch('/roles/{role}', [RoleController::class, 'update']);
+    Route::delete('/roles/{role}', [RoleController::class, 'destroy']);
+    Route::get('/staff-permissions', [StaffPermissionController::class, 'catalog']);
     Route::apiResource('departements', DepartementController::class);
     Route::apiResource('agents', AgentController::class);
     Route::apiResource('sites', SiteController::class);

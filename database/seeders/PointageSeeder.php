@@ -16,8 +16,12 @@ class PointageSeeder extends Seeder
         $agent = Agent::query()->where('matricule', 'EMP001')->first();
         $tech = Agent::query()->where('matricule', 'EMP005')->first();
 
-        if (! $agent || ! $siteNouvelle) {
-            return;
+        if (! $agent) {
+            throw new \RuntimeException('Le compte agent EMP001 est introuvable. Lance d\'abord le seeder AgentSeeder.');
+        }
+
+        if (! $siteNouvelle) {
+            throw new \RuntimeException('Le site nouvelle-mairie est introuvable. Lance d\'abord le seeder SiteSeeder.');
         }
 
         $today = now()->toDateString();

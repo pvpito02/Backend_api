@@ -61,4 +61,28 @@ class StoreAgentRequest extends FormRequest
             'statut.in' => 'Statut invalide (Actif, Inactif, Retraité, Suspendu).',
         ];
     }
+<<<<<<< HEAD
+
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('matricule') && is_string($this->matricule)) {
+            $normalized = trim($this->matricule);
+            $normalized = str_replace([' ', "\t", "\n", "\r"], '', $normalized);
+            $this->merge(['matricule' => strtoupper($normalized)]);
+        }
+
+        if ($this->has('email') && is_string($this->email)) {
+            $this->merge(['email' => trim(strtolower($this->email))]);
+        }
+
+        if ($this->has('telephone') && is_string($this->telephone)) {
+            $this->merge(['telephone' => trim($this->telephone)]);
+        }
+
+        if ($this->has('lieu_naissance') && is_string($this->lieu_naissance)) {
+            $this->merge(['lieu_naissance' => trim($this->lieu_naissance)]);
+        }
+    }
+=======
+>>>>>>> b0f45d3b959af0c53309980ca1b14e94122ffc0f
 }

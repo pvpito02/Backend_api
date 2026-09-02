@@ -31,7 +31,7 @@ class DemandeController extends Controller
         $this->authorize('viewAny', AbsenceRequest::class);
 
         $query = AbsenceRequest::query()
-            ->with(['agent.departement', 'approbateur'])
+            ->with(['agent.departement', 'agent.user.role', 'approbateur'])
             ->latest('id');
 
         $tokenName = $request->user()->currentAccessToken()?->name;

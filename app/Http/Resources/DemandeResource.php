@@ -41,6 +41,7 @@ class DemandeResource extends JsonResource
                 'name' => $this->approbateur->name,
             ] : null),
             'historique' => DemandeHistoryResource::collection($this->whenLoaded('history')),
+            'can_decide' => (bool) ($request->user()?->can('decide', $this->resource)),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

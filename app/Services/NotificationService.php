@@ -112,7 +112,7 @@ class NotificationService
      */
     public function adminStaffUsers(?User $except = null): Collection
     {
-        return $this->usersWithRoles(['super_admin', 'admin', 'sous_admin'], $except);
+        return $this->usersWithRoles(['super_admin', 'admin', 'rh', 'sous_admin'], $except);
     }
 
     /**
@@ -179,7 +179,7 @@ class NotificationService
 
         if (! $owner) {
             // Fiche sans compte lié : supervision classique
-            return $decider->hasRole(['super_admin', 'admin', 'sous_admin']);
+            return $decider->hasRole(['super_admin', 'admin', 'rh', 'sous_admin']);
         }
 
         $owner->loadMissing('role');
@@ -189,14 +189,14 @@ class NotificationService
         }
 
         if ($owner->hasRole(['sous_admin', 'direction'])) {
-            return $decider->hasRole(['super_admin', 'admin']);
+            return $decider->hasRole(['super_admin', 'admin', 'rh']);
         }
 
         if ($owner->hasRole('super_admin')) {
             return $decider->hasRole('super_admin') && $decider->id !== $owner->id;
         }
 
-        return $decider->hasRole(['super_admin', 'admin', 'sous_admin']);
+        return $decider->hasRole(['super_admin', 'admin', 'rh', 'sous_admin']);
     }
 
     /**

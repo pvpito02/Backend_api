@@ -316,6 +316,104 @@ class AgentIsolationAndNotificationTest extends TestCase
         ]);
     }
 
+    public function test_rh_own_demande_notifies_super_only_and_cannot_self_decide(): void
+    {
+        $rhRole = Role::query()->firstOrCreate(
+            ['name' => 'rh'],
+            ['display_name' => 'RH', 'description' => 'Test', 'is_active' => true],
+        );
+        $superRole = Role::query()->firstOrCreate(
+            ['name' => 'super_admin'],
+            ['display_name' => 'Super', 'description' => 'Test', 'is_active' => true],
+        );
+
+        $dept = Departement::query()->first() ?? Departement::query()->create([
+            'nom' => 'Secrétariat',
+            'code' => 'SEC',
+            'is_active' => true,
+        ]);
+
+        $rh = User::query()->create([
+            'role_id' => $rhRole->id,
+            'name' => 'RH Perso',
+            'email' => 'rh.own@sandiara.sn',
+            'password' => 'Admin@2026!',
+            'is_active' => true,
+            'permissions' => ['demandes.decide'],
+        ]);
+
+        $super = User::query()->create([
+            'role_id' => $superRole->id,
+            'name' => 'Super Perso',
+            'email' => 'super.own@sandiara.sn',
+            'password' => 'Admin@2026!',
+            'is_active' => true,
+        ]);
+
+        Agent::query()->create([
+            'user_id' => $rh->id,
+            'departement_id' => $dept->id,
+            'matricule' => 'EMP-RH-OWN',
+            'prenom' => 'RH',
+            'nom' => 'Perso',
+            'poste' => 'RH',
+            'telephone' => '+221770000888',
+            'email' => $rh->email,
+            'statut' => 'Actif',
+            'is_active' => true,
+        ]);
+
+        $rh->load('agent');
+
+        $created = $this->actingAs($rh, 'sanctum')
+            ->postJson('/api/demandes', [
+                'agent_id' => $rh->agent->id,
+                'type_demande' => 'ABSENCE',
+                'date_debut' => now()->addDay()->toDateString(),
+                'date_fin' => now()->addDay()->toDateString(),
+                'motif' => 'Demande perso RH',
+            ])
+            ->assertCreated();
+
+        $demandeId = $created->json('demande.id') ?? $created->json('data.id');
+
+        $this->assertDatabaseMissing('notifications', [
+            'user_id' => $rh->id,
+            'related_id' => $demandeId,
+            'related_model' => 'AbsenceRequest',
+        ]);
+
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $super->id,
+            'related_id' => $demandeId,
+            'related_model' => 'AbsenceRequest',
+        ]);
+
+        $this->actingAs($rh, 'sanctum')
+            ->postJson("/api/demandes/{$demandeId}/decide", [
+                'decision' => 'APPROUVEE',
+            ])
+            ->assertForbidden();
+
+        $ownList = $this->actingAs($rh, 'sanctum')
+            ->getJson('/api/demandes')
+            ->assertOk();
+
+        $ownRow = collect($ownList->json('data'))
+            ->first(fn ($row) => (int) ($row['id'] ?? 0) === (int) $demandeId);
+
+        $this->assertFalse((bool) ($ownRow['can_decide'] ?? true));
+
+        $superList = $this->actingAs($super, 'sanctum')
+            ->getJson('/api/demandes')
+            ->assertOk();
+
+        $superRow = collect($superList->json('data'))
+            ->first(fn ($row) => (int) ($row['id'] ?? 0) === (int) $demandeId);
+
+        $this->assertTrue((bool) ($superRow['can_decide'] ?? false));
+    }
+
     public function test_agent_cannot_list_other_agent_pointages_via_filter(): void
     {
         [$userA, $agentA] = $this->makeAgentUser('pa@sandiara.sn', 'EMP-PA');

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\AbsenceRequest;
 use App\Models\Agent;
+use App\Models\PlanningShift;
 use App\Models\Pointage;
 use App\Models\Site;
 use App\Models\WorkSchedule;
@@ -42,7 +43,7 @@ class PointageService
         $source = $payload['source'] ?? 'QR';
         $pendingSync = (bool) ($payload['pending_sync'] ?? false);
 
-        $this->assertWorkingDay($now);
+        $this->assertWorkingDay($now, $agent);
         $this->assertNotOnApprovedLeave($agent, $now);
         $this->assertCooldown($agent, $now);
 
@@ -97,7 +98,7 @@ class PointageService
         }
 
         $type = $payload['type'] ?? $this->nextType($agent, $now);
-        $lateMinutes = $type === 'ENTREE' ? $this->computeLateMinutes($now) : 0;
+        $lateMinutes = $type === 'ENTREE' ? $this->computeLateMinutes($now, $agent) : 0;
         $statut = $lateMinutes > 0 ? 'RETARD' : 'A_L_HEURE';
 
         $note = $payload['note'] ?? null;
@@ -193,15 +194,27 @@ class PointageService
         return 'SORTIE';
     }
 
-    public function computeLateMinutes(Carbon $at): int
+    public function computeLateMinutes(Carbon $at, ?Agent $agent = null): int
     {
-        $schedule = WorkSchedule::activeDefault();
-        if (! $schedule) {
-            return 0;
+        $entryTime = null;
+        if ($agent) {
+            $shift = PlanningShift::forAgentOnDate($agent, $at);
+            if ($shift) {
+                $entryTime = substr((string) $shift->shift_start, 0, 5);
+            }
         }
 
-        $entry = Carbon::parse($at->toDateString().' '.$schedule->entry_time);
-        $limit = $entry->copy()->addMinutes((int) $schedule->late_tolerance_minutes);
+        $schedule = WorkSchedule::activeDefault();
+        if (! $entryTime) {
+            if (! $schedule) {
+                return 0;
+            }
+            $entryTime = substr((string) $schedule->entry_time, 0, 5);
+        }
+
+        $tolerance = (int) ($schedule?->late_tolerance_minutes ?? 15);
+        $entry = Carbon::parse($at->toDateString().' '.$entryTime);
+        $limit = $entry->copy()->addMinutes($tolerance);
 
         if ($at->lte($limit)) {
             return 0;
@@ -260,7 +273,7 @@ class PointageService
         }
     }
 
-    public function assertWorkingDay(Carbon $at): void
+    public function assertWorkingDay(Carbon $at, ?Agent $agent = null): void
     {
         $isHoliday = DB::table('holidays')
             ->whereDate('date_holiday', $at->toDateString())
@@ -273,6 +286,35 @@ class PointageService
             ]);
         }
 
+        if ($agent && PlanningShift::hasAnyForAgent($agent)) {
+            if (! PlanningShift::forAgentOnDate($agent, $at)) {
+                throw ValidationException::withMessages([
+                    'scan' => ['Aucun planning aujourd’hui : pointage non requis.'],
+                ]);
+            }
+
+            return;
+        }
+
+        // Vérifier les jours travaillés du département de l'agent (si configuré)
+        if ($agent) {
+            $agent->loadMissing('departement');
+            $dept = $agent->departement;
+
+            if ($dept && is_array($dept->work_days)) {
+                $days = array_map('intval', $dept->work_days);
+                $dayIso = (int) $at->dayOfWeekIso; // 1=lun … 7=dim
+                if (! in_array($dayIso, $days, true)) {
+                    throw ValidationException::withMessages([
+                        'scan' => ['Pointage non autorisé ce jour pour votre service.'],
+                    ]);
+                }
+
+                return; // Le département a sa propre config → on ne vérifie pas le global
+            }
+        }
+
+        // Fallback : config globale
         $schedule = WorkSchedule::activeDefault();
         if (! $schedule) {
             return;

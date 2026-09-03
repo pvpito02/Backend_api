@@ -26,6 +26,8 @@ class StorePlanningShiftRequest extends FormRequest
             'assigned_count' => ['required', 'integer', 'min:0', 'lte:required_count'],
             'statut' => ['required', Rule::in(['CONFIRME', 'PROVISOIRE', 'EN_ATTENTE'])],
             'date_effective' => ['nullable', 'date'],
+            'work_days' => ['nullable', 'array', 'min:1', 'max:7'],
+            'work_days.*' => ['integer', 'between:1,7'],
             'is_active' => ['sometimes', 'boolean'],
         ];
     }

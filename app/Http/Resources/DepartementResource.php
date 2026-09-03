@@ -18,6 +18,10 @@ class DepartementResource extends JsonResource
             'telephone' => $this->telephone,
             'description' => $this->description,
             'is_active' => (bool) $this->is_active,
+            'work_days' => $this->work_days,
+            'entry_time' => $this->entry_time ? substr((string) $this->entry_time, 0, 5) : null,
+            'exit_time' => $this->exit_time ? substr((string) $this->exit_time, 0, 5) : null,
+            'friday_exit_time' => $this->friday_exit_time ? substr((string) $this->friday_exit_time, 0, 5) : null,
             'responsable_id' => $this->responsable_id,
             'responsable' => $this->whenLoaded('responsable', fn () => $this->responsable ? [
                 'id' => $this->responsable->id,

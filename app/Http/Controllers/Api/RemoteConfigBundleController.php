@@ -9,6 +9,7 @@ use App\Http\Resources\RemoteConfigResource;
 use App\Http\Resources\SiteResource;
 use App\Http\Resources\WorkScheduleResource;
 use App\Models\Announcement;
+use App\Models\Departement;
 use App\Models\MobileFeature;
 use App\Models\RemoteConfig;
 use App\Models\Site;
@@ -102,6 +103,19 @@ class RemoteConfigBundleController extends Controller
                     array_filter(explode(',', (string) ($map['retraite_alerte_mois'] ?? '6,3,1')))
                 ),
             ],
+            'departement_schedules' => Departement::query()
+                ->whereNotNull('work_days')
+                ->where('is_active', true)
+                ->get()
+                ->map(fn (Departement $d) => [
+                    'departement_id' => $d->id,
+                    'code' => $d->code,
+                    'nom' => $d->nom,
+                    'work_days' => $d->work_days,
+                    'entry_time' => $d->entry_time ? substr((string) $d->entry_time, 0, 5) : null,
+                    'exit_time' => $d->exit_time ? substr((string) $d->exit_time, 0, 5) : null,
+                    'friday_exit_time' => $d->friday_exit_time ? substr((string) $d->friday_exit_time, 0, 5) : null,
+                ]),
             'announcements' => AnnouncementResource::collection($announcements),
             'raw_configs' => $map,
         ]);

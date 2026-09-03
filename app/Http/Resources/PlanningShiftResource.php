@@ -35,6 +35,7 @@ class PlanningShiftResource extends JsonResource
             'statut' => $this->statut,
             'status' => $statutMap[$this->statut] ?? $this->statut,
             'date_effective' => $this->date_effective?->format('Y-m-d'),
+            'work_days' => $this->work_days,
             'is_active' => (bool) $this->is_active,
             'agent' => $this->whenLoaded('agent', fn () => $this->agent ? [
                 'id' => $this->agent->id,

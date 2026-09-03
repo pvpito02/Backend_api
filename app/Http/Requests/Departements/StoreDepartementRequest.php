@@ -27,6 +27,11 @@ class StoreDepartementRequest extends FormRequest
             'telephone' => ['nullable', 'string', 'max:30'],
             'description' => ['nullable', 'string', 'max:2000'],
             'is_active' => ['sometimes', 'boolean'],
+            'work_days' => ['nullable', 'array', 'min:1', 'max:7'],
+            'work_days.*' => ['integer', 'between:1,7'],
+            'entry_time' => ['nullable', 'date_format:H:i'],
+            'exit_time' => ['nullable', 'date_format:H:i'],
+            'friday_exit_time' => ['nullable', 'date_format:H:i'],
         ];
     }
 

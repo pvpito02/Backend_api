@@ -26,6 +26,8 @@ class UpdatePlanningShiftRequest extends FormRequest
             'assigned_count' => ['sometimes', 'integer', 'min:0'],
             'statut' => ['sometimes', Rule::in(['CONFIRME', 'PROVISOIRE', 'EN_ATTENTE'])],
             'date_effective' => ['nullable', 'date'],
+            'work_days' => ['nullable', 'array', 'min:1', 'max:7'],
+            'work_days.*' => ['integer', 'between:1,7'],
             'is_active' => ['sometimes', 'boolean'],
         ];
     }

@@ -9,8 +9,8 @@ use Illuminate\Database\Seeder;
 class UserSeeder extends Seeder
 {
     /**
-     * Comptes de test — mot de passe : Admin@2026! (hashé via cast User).
-     * La fiche agent EMP001 est créée dans AgentSeeder.
+     * Comptes de démarrage production — mot de passe : Admin@2026!
+     * (à changer immédiatement après déploiement).
      */
     public function run(): void
     {
@@ -33,7 +33,7 @@ class UserSeeder extends Seeder
             ['email' => 'admin@sandiara.sn'],
             [
                 'role_id' => $roles['admin'] ?? null,
-                'name' => 'Administrateur RH',
+                'name' => 'Administrateur',
                 'phone' => '+221770000002',
                 'password' => $password,
                 'is_active' => true,
@@ -42,23 +42,11 @@ class UserSeeder extends Seeder
         );
 
         User::query()->updateOrCreate(
-            ['email' => 'sousadmin@sandiara.sn'],
+            ['email' => 'rh@sandiara.sn'],
             [
-                'role_id' => $roles['sous_admin'] ?? null,
-                'name' => 'Sous Administrateur',
+                'role_id' => $roles['rh'] ?? null,
+                'name' => 'Ressources Humaines',
                 'phone' => '+221770000003',
-                'password' => $password,
-                'is_active' => true,
-                'email_verified_at' => now(),
-            ]
-        );
-
-        User::query()->updateOrCreate(
-            ['email' => 'agent.ndiaye@sandiara.sn'],
-            [
-                'role_id' => $roles['agent'] ?? null,
-                'name' => 'Mamadou Ndiaye',
-                'phone' => '+221770000010',
                 'password' => $password,
                 'is_active' => true,
                 'email_verified_at' => now(),

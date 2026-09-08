@@ -10,7 +10,9 @@ class DatabaseSeeder extends Seeder
     use WithoutModelEvents;
 
     /**
-     * Données de référence réelles (alignées sur pointage_mairie_schema.sql).
+     * Base propre pour démarrage / déploiement :
+     * rôles + config minimale + 3 comptes (super / admin / RH).
+     * Pas de données de démo (agents, pointages, demandes…).
      */
     public function run(): void
     {
@@ -23,17 +25,6 @@ class DatabaseSeeder extends Seeder
             RemoteConfigSeeder::class,
             HolidaySeeder::class,
             UserSeeder::class,
-            ConseillerSeeder::class,
-            AgentSeeder::class,
-            PointageSeeder::class,
-            DemandeSeeder::class,
-            AnnouncementSeeder::class,
-            MissionSeeder::class,
-            SanctionSeeder::class,
-            RetraiteSeeder::class,
-            QrCodeSeeder::class,
-            AgentDocumentSeeder::class,
-            OvertimeRequestSeeder::class,
         ]);
     }
 }

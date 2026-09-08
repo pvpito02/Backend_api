@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AnnouncementResource;
+use App\Http\Resources\HolidayResource;
 use App\Http\Resources\MobileFeatureResource;
 use App\Http\Resources\RemoteConfigResource;
 use App\Http\Resources\SiteResource;
 use App\Http\Resources\WorkScheduleResource;
 use App\Models\Announcement;
 use App\Models\Departement;
+use App\Models\Holiday;
 use App\Models\MobileFeature;
 use App\Models\RemoteConfig;
 use App\Models\Site;
@@ -43,6 +45,17 @@ class RemoteConfigBundleController extends Controller
         $sites = Site::query()->where('is_active', true)->with('departements')->orderBy('name')->get();
         $features = MobileFeature::query()->orderBy('sort_order')->get();
         $announcements = Announcement::query()->activeForMobile()->orderByDesc('priority')->get();
+
+        // Année courante + suivante (fêtes civiles seedées + religieuses saisies admin)
+        $year = (int) now()->year;
+        $holidays = Holiday::query()
+            ->where('is_active', true)
+            ->where(function ($q) use ($year) {
+                $q->whereYear('date_holiday', $year)
+                    ->orWhereYear('date_holiday', $year + 1);
+            })
+            ->orderBy('date_holiday')
+            ->get();
 
         return response()->json([
             'synced_at' => now()->toIso8601String(),
@@ -117,6 +130,7 @@ class RemoteConfigBundleController extends Controller
                     'friday_exit_time' => $d->friday_exit_time ? substr((string) $d->friday_exit_time, 0, 5) : null,
                 ]),
             'announcements' => AnnouncementResource::collection($announcements),
+            'holidays' => HolidayResource::collection($holidays),
             'raw_configs' => $map,
         ]);
     }

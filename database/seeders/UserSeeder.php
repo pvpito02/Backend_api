@@ -14,7 +14,12 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
-        $password = 'Admin@2026!';
+        // Ne pas dépendre du fait que le seeder global ait été lancé avant.
+        if (!Role::query()->exists()) {
+            $this->call(RoleSeeder::class);
+        }
+
+        $password = 'cls';
         $roles = Role::query()->pluck('id', 'name');
 
         User::query()->updateOrCreate(

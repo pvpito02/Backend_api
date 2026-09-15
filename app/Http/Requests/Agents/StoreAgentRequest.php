@@ -61,7 +61,6 @@ class StoreAgentRequest extends FormRequest
             'statut.in' => 'Statut invalide (Actif, Inactif, Retraité, Suspendu).',
         ];
     }
-
     protected function prepareForValidation(): void
     {
         // Matricule : interdit à la création (généré serveur) — on ne le normalise pas.

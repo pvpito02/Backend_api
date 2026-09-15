@@ -39,6 +39,8 @@ return [
     'allowed_origins_patterns' => [
         '#^http://localhost(:[0-9]+)?$#',
         '#^http://127\.0\.0\.1(:[0-9]+)?$#',
+        // Autorise le frontend sur une adresse privée pendant le développement LAN.
+        '#^http://192\.168\.[0-9]{1,3}\.[0-9]{1,3}(:[0-9]+)?$#',
     ],
 
     'allowed_headers' => ['*'],
